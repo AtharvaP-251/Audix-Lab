@@ -1,0 +1,407 @@
+---
+
+# 🚀 Development Roadmap
+
+---
+
+## 🧱 Phase 0: Project Setup (Foundation)
+
+### 🎯 Goal:
+
+Get a clean Android project ready with the right structure.
+
+### Tasks:
+
+* Create Android project (Kotlin + Jetpack Compose)
+* Set up:
+
+  * MVVM structure (basic folders)
+  * Git repository
+* Add dependencies:
+
+  * Retrofit
+  * Room
+  * DataStore
+  * Coroutines
+
+---
+
+### ✅ Output:
+
+* App launches with empty screen
+* Clean architecture in place
+
+---
+
+## 🎧 Phase 1: Basic EQ Engine (Core Audio)
+
+### 🎯 Goal:
+
+Prove you can **apply EQ to system audio**
+
+### Tasks:
+
+* Integrate Android:
+
+  * `Equalizer` API
+  * Audio session handling
+* Create:
+
+  * 1 test preset (e.g., “Bass Boost”)
+* Apply EQ manually via button
+
+---
+
+### ⚠️ Ignore for now:
+
+* AI
+* Notifications
+* Genre logic
+
+---
+
+### ✅ Success Criteria:
+
+* You press a button → audio sound changes
+* Works with **Spotify**
+
+---
+
+## 🔍 Phase 2: Song Detection (Critical Layer)
+
+### 🎯 Goal:
+
+Detect currently playing song
+
+### Tasks:
+
+* Implement:
+
+  * `NotificationListenerService`
+* Extract:
+
+  * Song title
+  * Artist
+* Display in UI
+
+---
+
+### ⚠️ Challenges:
+
+* Different apps format notifications differently
+
+---
+
+### ✅ Success Criteria:
+
+* Play song on **YouTube Music**
+* Your app shows correct song + artist
+
+---
+
+## 🧠 Phase 3: AI Genre Detection
+
+### 🎯 Goal:
+
+Convert song → genre
+
+### Tasks:
+
+* Integrate AI API (OpenAI / Gemini)
+* Send:
+
+  * "Song - Artist"
+* Receive:
+
+  * Genre
+* Display genre in UI
+
+---
+
+### ⚠️ Important:
+
+* Add timeout + error handling
+
+---
+
+### ✅ Success Criteria:
+
+* Song plays → genre appears correctly
+
+---
+
+## 💾 Phase 4: Caching System (Performance Layer)
+
+### 🎯 Goal:
+
+Avoid repeated API calls
+
+### Tasks:
+
+* Implement Room database
+* Store:
+
+  * Song + artist → genre
+* Logic:
+
+  * Check cache first
+  * Call API only if not found
+
+---
+
+### ✅ Success Criteria:
+
+* Same song → no second API call
+* Faster response
+
+---
+
+## 🎚️ Phase 5: Preset Engine + Genre Mapping
+
+### 🎯 Goal:
+
+Apply correct EQ automatically
+
+### Tasks:
+
+* Define presets:
+
+  * Rock
+  * Pop
+  * Jazz
+  * etc.
+* Map:
+
+  * Genre → EQ values
+* Apply EQ dynamically when:
+
+  * Song changes
+
+---
+
+### ✅ Success Criteria:
+
+* Play different genres → EQ changes automatically
+
+---
+
+## 🎛️ Phase 6: Intensity Slider (UX Differentiator)
+
+### 🎯 Goal:
+
+Make EQ controllable but simple
+
+### Tasks:
+
+* Add slider (0–100%)
+* Scale EQ values based on slider
+* Persist value (DataStore)
+
+---
+
+### 💡 Example:
+
+* Rock preset = +5 bass
+* 50% intensity = +2.5 bass
+
+---
+
+### ✅ Success Criteria:
+
+* Slider changes sound in real time
+
+---
+
+## 🔄 Phase 7: Background Engine (Real App Behavior)
+
+### 🎯 Goal:
+
+Make everything run automatically
+
+### Tasks:
+
+* Implement:
+
+  * Foreground Service
+* Move:
+
+  * Detection + EQ logic to service
+* Add persistent notification:
+
+  * “EQ Active”
+  * Show current genre
+
+---
+
+### ⚠️ Important:
+
+* Handle lifecycle properly
+
+---
+
+### ✅ Success Criteria:
+
+* App works even when closed
+* EQ updates in real time
+
+---
+
+## ⚙️ Phase 8: App Targeting (Spotify + YouTube Music Only)
+
+### 🎯 Goal:
+
+Limit EQ to supported apps
+
+### Tasks:
+
+* Detect app package name
+* Allow only:
+
+  * Spotify
+  * YouTube Music
+
+---
+
+### ✅ Success Criteria:
+
+* EQ not applied to random apps (e.g., games)
+
+---
+
+## 🧩 Phase 9: Legacy Mode (Stability Layer)
+
+### 🎯 Goal:
+
+Handle edge cases where detection fails
+
+### Tasks:
+
+* Add toggle: “Legacy Mode”
+* Apply global audio session fallback
+
+---
+
+### ✅ Success Criteria:
+
+* Works on more devices
+* Fixes detection issues
+
+---
+
+## 🎨 Phase 10: UI Polish (Keep it Minimal)
+
+### 🎯 Goal:
+
+Clean, simple UX
+
+### UI Elements:
+
+* ON/OFF toggle
+* Current genre
+* Intensity slider
+
+---
+
+### Optional:
+
+* Show song name
+
+---
+
+### ✅ Success Criteria:
+
+* User understands app in <10 seconds
+
+---
+
+## 🧪 Phase 11: Real Device Testing (CRITICAL)
+
+### 🎯 Goal:
+
+Ensure reliability across devices
+
+### Test on:
+
+* Different Android versions
+* Different brands (Samsung, OnePlus, etc.)
+
+---
+
+### Test cases:
+
+* App killed → restart
+* Song change speed
+* Notification delays
+
+---
+
+### ✅ Success Criteria:
+
+* Stable behavior across devices
+
+---
+
+## 🚀 Phase 12: Pre-Launch Hardening
+
+### 🎯 Goal:
+
+Prepare for real users
+
+### Tasks:
+
+* Handle:
+
+  * Errors (API fail)
+  * No internet
+* Add:
+
+  * Permission explanation screens
+* Optimize:
+
+  * Battery usage
+
+---
+
+---
+
+# 🧠 Development Strategy (Very Important)
+
+### 🔥 Build in this order ONLY:
+
+1. EQ works ✅
+2. Song detection works ✅
+3. AI works ✅
+4. Connect everything ✅
+
+---
+
+### ❌ Common Mistake to Avoid
+
+Don’t try to:
+
+* Build UI + AI + audio all together
+
+You’ll get stuck.
+
+---
+
+# ⏱️ Rough Timeline (Realistic)
+
+* Phase 0–2: 1–2 weeks
+* Phase 3–5: 1–2 weeks
+* Phase 6–8: 1 week
+* Phase 9–12: 1–2 weeks
+
+👉 **Total MVP: ~4–6 weeks**
+
+---
+
+# 🚀 Next Step
+
+If you want, we can now go deeper into:
+
+* Internal architecture (how services, ViewModels, and EQ engine interact)
+* OR define your **EQ presets scientifically (this matters a lot)**
+* OR design your **AI prompt for accurate genre detection**
+
+Just tell me what you want to tackle next 👍

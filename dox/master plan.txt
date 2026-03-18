@@ -1,0 +1,614 @@
+---
+
+# 📄 `masterplan.md`
+
+---
+
+## 1. App Overview and Objectives
+
+The application is an Android-based intelligent audio equalizer that automatically enhances music playback by applying genre-specific EQ presets in real time.
+
+It detects the currently playing song from supported music apps, classifies its genre using an AI API, and dynamically applies a suitable equalizer preset. The goal is to deliver an improved listening experience without requiring users to manually adjust audio settings.
+
+**Core Objective:**
+Create a seamless, “set-and-forget” audio enhancement tool that intelligently adapts sound output based on music genre.
+
+---
+
+## 2. Target Audience
+
+* Casual music listeners who want better sound without technical setup
+* Users of streaming platforms like Spotify and YouTube Music
+* Users unfamiliar with EQ tuning but sensitive to sound quality
+* Android users seeking automation and simplicity
+
+---
+
+## 3. Core Features and Functionality
+
+### 🎵 Music Detection
+
+* Detect currently playing track via notification listener
+* Extract song title and artist
+
+### 🧠 Genre Classification
+
+* Send metadata (song + artist) to AI API
+* Receive genre classification (e.g., Rock, Pop, Jazz, etc.)
+* Cache results locally to reduce API calls
+
+### 🎚️ Intelligent EQ Engine
+
+* Map detected genre to predefined EQ preset
+* Apply EQ using Android AudioEffect APIs
+* Support session-based audio processing
+* Include fallback “Legacy Mode” for broader compatibility
+
+### 🎛️ Intensity Control
+
+* Single slider to scale EQ strength
+* Range: Flat → Full preset
+* Abstracts complexity of EQ bands
+
+### 📱 Background Operation
+
+* Foreground service with persistent notification
+* Real-time updates when track changes
+
+### 🎯 App-Specific Targeting
+
+* Default support:
+
+  * Spotify
+  * YouTube Music
+* Avoid applying EQ to non-music apps
+
+### 🧾 Minimal UI
+
+* Display:
+
+  * Current song (optional)
+  * Detected genre
+  * Intensity slider
+* Toggle ON/OFF
+
+---
+
+## 4. High-Level Technical Stack Recommendations
+
+### 📱 Android App
+
+* Language: Kotlin (recommended)
+* Architecture: MVVM or Clean Architecture
+
+### 🎧 Audio Processing
+
+* Android `AudioEffect` / `Equalizer` API
+* Session-based attachment
+* Fallback global session (Legacy Mode)
+
+### 🔍 Detection Layer
+
+* Notification Listener Service
+* Optional: MediaSession APIs for refinement
+
+### 🧠 AI Integration
+
+* External AI API (LLM-based genre classification)
+* REST API communication
+
+### 💾 Local Storage
+
+* Lightweight database:
+
+  * Room (recommended)
+* Store:
+
+  * Song → Genre mapping (cache)
+  * User preferences
+
+---
+
+## 5. Conceptual Data Model
+
+### Entities:
+
+**SongCache**
+
+* song_title
+* artist_name
+* detected_genre
+* timestamp
+
+**UserSettings**
+
+* eq_intensity (0–100)
+* eq_enabled (boolean)
+* legacy_mode_enabled (boolean)
+
+**EQPreset**
+
+* genre_name
+* band_values (array for EQ bands)
+
+---
+
+## 6. User Interface and UX Principles
+
+### Principles:
+
+* Minimal friction
+* No technical jargon
+* Immediate feedback
+
+### Screens:
+
+**Main Screen**
+
+* Toggle: EQ ON/OFF
+* Detected Genre (live)
+* Intensity Slider
+
+**Setup Flow**
+
+* Request:
+
+  * Notification access
+  * Battery optimization exemption
+
+**Notification UI**
+
+* Shows:
+
+  * “EQ Active”
+  * Current genre
+  * Quick toggle
+
+---
+
+## 7. Authentication and Security Considerations
+
+* No user accounts (local-only app)
+* No personal data stored externally
+* Transparent permission usage:
+
+  * Notification access clearly explained
+* Secure API communication (HTTPS)
+
+---
+
+## 8. Third-Party Integrations
+
+### Required:
+
+* AI API for genre classification
+
+### Optional (future):
+
+* Music metadata APIs for fallback
+* Analytics (privacy-conscious)
+
+---
+
+## 9. Scalability Strategy
+
+### Short-Term:
+
+* Cache aggressively to reduce API usage
+* Optimize API calls (only on new songs)
+
+### Mid-Term:
+
+* Hybrid classification:
+
+  * Cache + API + heuristics
+
+### Long-Term:
+
+* On-device ML model for offline classification
+
+---
+
+## 10. Development Phases / Milestones
+
+### Phase 1: Core MVP
+
+* Notification listener
+* Basic EQ application
+* Fixed presets
+* Manual toggle
+
+### Phase 2: Intelligence Layer
+
+* AI integration
+* Genre mapping
+* Local caching
+
+### Phase 3: UX Polish
+
+* Intensity slider
+* Persistent notification
+* Stability improvements
+
+### Phase 4: Compatibility
+
+* Legacy mode
+* Device-specific tuning
+
+---
+
+## 11. Potential Challenges and Mitigation Strategies
+
+### ⚠️ Audio Session Inconsistency
+
+* Mitigation: Legacy mode fallback
+
+### ⚠️ Android Background Restrictions
+
+* Mitigation: Foreground service + user guidance
+
+### ⚠️ API Cost / Latency
+
+* Mitigation: Local caching
+
+### ⚠️ Metadata Inaccuracy
+
+* Mitigation: Retry logic + caching corrections
+
+### ⚠️ Device Fragmentation
+
+* Mitigation: Extensive testing + adaptive EQ mapping
+
+---
+
+## 12. Future Expansion Opportunities
+
+* More genres and sub-genres
+* User-custom EQ presets
+* App selection control
+* Offline genre detection (on-device ML)
+* Audio profiles based on mood/activity
+* Smart learning from user adjustments
+* Premium tier (optional future monetization)
+
+---
+
+## 🚀 Next Step
+
+This is a strong, buildable plan.
+
+Now I want your feedback:
+
+👉 What would you like to refine, challenge, or expand?
+
+We can:
+
+* Go deeper into architecture
+* Stress-test edge cases
+* Or turn this into a development roadmap
+
+Let’s iterate like a real product team would.
+Got it — clean, simple, and focused. I like it 👍
+
+You’re building:
+
+> A **free, no-login, intelligent EQ app** that just works automatically.
+
+That’s actually a strong adoption strategy:
+
+* No friction
+* Easy install → instant value
+* Good chance of organic growth
+
+---
+
+## 🧠 Quick Final Alignment Summary
+
+Before I generate your blueprint, here’s everything we’ve locked in:
+
+* 📱 Android app
+* 🎧 Works with:
+
+  * **Spotify**
+  * **YouTube Music**
+* 🔍 Song detection via notification listener
+* 🧠 Genre detection via AI API
+* 💾 Local caching of genre results
+* 🎚️ EQ system:
+
+  * Fixed presets per genre
+  * Intensity slider
+  * Start with 5-band (device-compatible)
+* ⚙️ Audio engine:
+
+  * Android AudioEffect-based (Wavelet-style)
+  * Session-based + legacy fallback
+* 🔄 Runs in background:
+
+  * Foreground service + persistent notification
+* 🎯 Scope:
+
+  * Only music apps (not all audio)
+* 🔐 No accounts
+* 💰 Free app (no monetization initially)
+* 🧩 UI:
+
+  * Minimal
+  * Shows genre + slider
+
+Everything looks tight and realistic.
+
+---
+
+# 📄 `masterplan.md`
+
+---
+
+## 1. App Overview and Objectives
+
+The application is an Android-based intelligent audio equalizer that automatically enhances music playback by applying genre-specific EQ presets in real time.
+
+It detects the currently playing song from supported music apps, classifies its genre using an AI API, and dynamically applies a suitable equalizer preset. The goal is to deliver an improved listening experience without requiring users to manually adjust audio settings.
+
+**Core Objective:**
+Create a seamless, “set-and-forget” audio enhancement tool that intelligently adapts sound output based on music genre.
+
+---
+
+## 2. Target Audience
+
+* Casual music listeners who want better sound without technical setup
+* Users of streaming platforms like Spotify and YouTube Music
+* Users unfamiliar with EQ tuning but sensitive to sound quality
+* Android users seeking automation and simplicity
+
+---
+
+## 3. Core Features and Functionality
+
+### 🎵 Music Detection
+
+* Detect currently playing track via notification listener
+* Extract song title and artist
+
+### 🧠 Genre Classification
+
+* Send metadata (song + artist) to AI API
+* Receive genre classification (e.g., Rock, Pop, Jazz, etc.)
+* Cache results locally to reduce API calls
+
+### 🎚️ Intelligent EQ Engine
+
+* Map detected genre to predefined EQ preset
+* Apply EQ using Android AudioEffect APIs
+* Support session-based audio processing
+* Include fallback “Legacy Mode” for broader compatibility
+
+### 🎛️ Intensity Control
+
+* Single slider to scale EQ strength
+* Range: Flat → Full preset
+* Abstracts complexity of EQ bands
+
+### 📱 Background Operation
+
+* Foreground service with persistent notification
+* Real-time updates when track changes
+
+### 🎯 App-Specific Targeting
+
+* Default support:
+
+  * Spotify
+  * YouTube Music
+* Avoid applying EQ to non-music apps
+
+### 🧾 Minimal UI
+
+* Display:
+
+  * Current song (optional)
+  * Detected genre
+  * Intensity slider
+* Toggle ON/OFF
+
+---
+
+## 4. High-Level Technical Stack Recommendations
+
+### 📱 Android App
+
+* Language: Kotlin (recommended)
+* Architecture: MVVM or Clean Architecture
+
+### 🎧 Audio Processing
+
+* Android `AudioEffect` / `Equalizer` API
+* Session-based attachment
+* Fallback global session (Legacy Mode)
+
+### 🔍 Detection Layer
+
+* Notification Listener Service
+* Optional: MediaSession APIs for refinement
+
+### 🧠 AI Integration
+
+* External AI API (LLM-based genre classification)
+* REST API communication
+
+### 💾 Local Storage
+
+* Lightweight database:
+
+  * Room (recommended)
+* Store:
+
+  * Song → Genre mapping (cache)
+  * User preferences
+
+---
+
+## 5. Conceptual Data Model
+
+### Entities:
+
+**SongCache**
+
+* song_title
+* artist_name
+* detected_genre
+* timestamp
+
+**UserSettings**
+
+* eq_intensity (0–100)
+* eq_enabled (boolean)
+* legacy_mode_enabled (boolean)
+
+**EQPreset**
+
+* genre_name
+* band_values (array for EQ bands)
+
+---
+
+## 6. User Interface and UX Principles
+
+### Principles:
+
+* Minimal friction
+* No technical jargon
+* Immediate feedback
+
+### Screens:
+
+**Main Screen**
+
+* Toggle: EQ ON/OFF
+* Detected Genre (live)
+* Intensity Slider
+
+**Setup Flow**
+
+* Request:
+
+  * Notification access
+  * Battery optimization exemption
+
+**Notification UI**
+
+* Shows:
+
+  * “EQ Active”
+  * Current genre
+  * Quick toggle
+
+---
+
+## 7. Authentication and Security Considerations
+
+* No user accounts (local-only app)
+* No personal data stored externally
+* Transparent permission usage:
+
+  * Notification access clearly explained
+* Secure API communication (HTTPS)
+
+---
+
+## 8. Third-Party Integrations
+
+### Required:
+
+* AI API for genre classification
+
+### Optional (future):
+
+* Music metadata APIs for fallback
+* Analytics (privacy-conscious)
+
+---
+
+## 9. Scalability Strategy
+
+### Short-Term:
+
+* Cache aggressively to reduce API usage
+* Optimize API calls (only on new songs)
+
+### Mid-Term:
+
+* Hybrid classification:
+
+  * Cache + API + heuristics
+
+### Long-Term:
+
+* On-device ML model for offline classification
+
+---
+
+## 10. Development Phases / Milestones
+
+### Phase 1: Core MVP
+
+* Notification listener
+* Basic EQ application
+* Fixed presets
+* Manual toggle
+
+### Phase 2: Intelligence Layer
+
+* AI integration
+* Genre mapping
+* Local caching
+
+### Phase 3: UX Polish
+
+* Intensity slider
+* Persistent notification
+* Stability improvements
+
+### Phase 4: Compatibility
+
+* Legacy mode
+* Device-specific tuning
+
+---
+
+## 11. Potential Challenges and Mitigation Strategies
+
+### ⚠️ Audio Session Inconsistency
+
+* Mitigation: Legacy mode fallback
+
+### ⚠️ Android Background Restrictions
+
+* Mitigation: Foreground service + user guidance
+
+### ⚠️ API Cost / Latency
+
+* Mitigation: Local caching
+
+### ⚠️ Metadata Inaccuracy
+
+* Mitigation: Retry logic + caching corrections
+
+### ⚠️ Device Fragmentation
+
+* Mitigation: Extensive testing + adaptive EQ mapping
+
+---
+
+## 12. Future Expansion Opportunities
+
+* More genres and sub-genres
+* User-custom EQ presets
+* App selection control
+* Offline genre detection (on-device ML)
+* Audio profiles based on mood/activity
+* Smart learning from user adjustments
+* Premium tier (optional future monetization)
+
+---
