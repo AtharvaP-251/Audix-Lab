@@ -23,10 +23,10 @@ Set up a clean Android project with the correct architecture and dependencies.
 Prove the ability to apply EQ to system audio.
 
 ### Tasks
-- [ ] Integrate the Android `Equalizer` API and handle audio sessions.
-- [ ] Create a single test EQ preset (e.g., "Bass Boost").
-- [ ] Implement a basic UI button to trigger the manual EQ application.
-- [ ] **[Manual Intervention Required]** Listen to audio (e.g., via Spotify) and manually toggle the button to verify the sound actually changes.
+- [x] Integrate the Android `Equalizer` API and handle audio sessions.
+- [x] Create a single test EQ preset (e.g., "Bass Boost").
+- [x] Implement a basic UI button to trigger the manual EQ application.
+- [x] **[Manual Intervention Required]** Listen to audio (e.g., via Spotify) and manually toggle the button to verify the sound actually changes.
 
 ---
 
