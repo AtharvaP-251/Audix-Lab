@@ -2,6 +2,8 @@ package com.audix.app.domain
 
 import android.util.Log
 import com.audix.app.BuildConfig
+import com.audix.app.data.SongCache
+import com.audix.app.data.SongCacheDao
 import com.audix.app.network.GeminiApi
 import com.audix.app.network.GeminiRequest
 import com.audix.app.network.Content
@@ -12,7 +14,7 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
-class GenreDetector {
+class GenreDetector(private val songCacheDao: SongCacheDao) {
     companion object {
         private const val TAG = "GenreDetector"
         private const val BASE_URL = "https://generativelanguage.googleapis.com/"
@@ -42,6 +44,12 @@ class GenreDetector {
     }
 
     suspend fun detectGenre(title: String, artist: String): String? {
+        val cached = songCacheDao.getGenreForSong(title, artist)
+        if (cached != null) {
+            Log.d(TAG, "Cache hit for '$title' by '$artist': $cached")
+            return cached
+        }
+
         val prompt = """
             You are a music genre classifier.
 
@@ -83,14 +91,22 @@ class GenreDetector {
             val genre = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text?.trim()
             if (genre != null) {
                 Log.d(TAG, "Detected genre for '$title' by '$artist': $genre")
+                songCacheDao.insert(SongCache(title, artist, genre, System.currentTimeMillis()))
                 genre
             } else {
                 Log.e(TAG, "Empty choices in response")
-                null
+                "Error: Unknown Response"
+            }
+        } catch (e: retrofit2.HttpException) {
+            Log.e(TAG, "HTTP error detecting genre: ${e.code()}", e)
+            if (e.code() == 429) {
+                "Rate Limit Exceeded"
+            } else {
+                "Error: API Failed (${e.code()})"
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error detecting genre", e)
-            null
+            "Error: Network Offline"
         }
     }
 }

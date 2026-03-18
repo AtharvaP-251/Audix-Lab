@@ -35,16 +35,21 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.audix.app.audio.EqEngine
+import androidx.room.Room
+import com.audix.app.data.AppDatabase
 import com.audix.app.domain.GenreDetector
 import com.audix.app.state.SongState
 import com.audix.app.ui.theme.AudixTheme
 
 class MainActivity : ComponentActivity() {
     private val eqEngine = EqEngine()
-    private val genreDetector = GenreDetector()
+    private lateinit var db: AppDatabase
+    private lateinit var genreDetector: GenreDetector
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        db = Room.databaseBuilder(applicationContext, AppDatabase::class.java, "audix_db").build()
+        genreDetector = GenreDetector(db.songCacheDao())
         eqEngine.initialize()
         
         enableEdgeToEdge()
@@ -156,13 +161,27 @@ fun EqControls(eqEngine: EqEngine, genreDetector: GenreDetector, modifier: Modif
                         textAlign = TextAlign.Center
                     )
                 } else {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Detecting genre...",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodyMedium,
-                        textAlign = TextAlign.Center
-                    )
+                    var showDetecting by remember { mutableStateOf(false) }
+                    LaunchedEffect(currentSong!!.title) {
+                        kotlinx.coroutines.delay(150)
+                        showDetecting = true
+                    }
+                    if (showDetecting) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Detecting genre...",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodyMedium,
+                            textAlign = TextAlign.Center
+                        )
+                    } else {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = " ",
+                            style = MaterialTheme.typography.bodyMedium,
+                            textAlign = TextAlign.Center
+                        )
+                    }
                 }
             } else {
                 Text(
@@ -192,6 +211,9 @@ fun EqControls(eqEngine: EqEngine, genreDetector: GenreDetector, modifier: Modif
 @Composable
 fun EqControlsPreview() {
     AudixTheme {
-        EqControls(EqEngine(), GenreDetector())
+        EqControls(EqEngine(), GenreDetector(object : com.audix.app.data.SongCacheDao {
+            override suspend fun getGenreForSong(title: String, artist: String): String? = null
+            override suspend fun insert(songCache: com.audix.app.data.SongCache) {}
+        }))
     }
 }

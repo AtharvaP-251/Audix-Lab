@@ -36,10 +36,10 @@ Prove the ability to apply EQ to system audio.
 Detect the currently playing song reliably.
 
 ### Tasks
-- [ ] Implement `NotificationListenerService`.
-- [ ] Extract the song title and artist information from media notifications.
-- [ ] Bind the extracted data to the UI.
-- [ ] **[Manual Intervention Required]** Manually open YouTube Music/Spotify, play different songs, and visually verify the app displays the correct song and artist. You will need to manually grant notification reading permissions in Android settings during this test.
+- [x] Implement `NotificationListenerService`.
+- [x] Extract the song title and artist information from media notifications.
+- [x] Bind the extracted data to the UI.
+- [x] **[Manual Intervention Required]** Manually open YouTube Music/Spotify, play different songs, and visually verify the app displays the correct song and artist. You will need to manually grant notification reading permissions in Android settings during this test.
 
 ---
 
@@ -63,8 +63,8 @@ Convert the detected song and artist into a music genre.
 Avoid repetitive API calls for the same song to save costs and reduce latency.
 
 ### Tasks
-- [ ] Implement a Room database (`SongCache` entity: song_title, artist_name, detected_genre, timestamp).
-- [ ] Build logic to first interrogate the database; call the AI API only if there's a cache miss.
+- [x] Implement a Room database (`SongCache` entity: song_title, artist_name, detected_genre, timestamp).
+- [x] Build logic to first interrogate the database; call the AI API only if there's a cache miss.
 - [ ] **[Manual Intervention Required]** Play a sequence of songs manually and observe the application logs to ensure the API is called exactly once per unique track.
 
 ---

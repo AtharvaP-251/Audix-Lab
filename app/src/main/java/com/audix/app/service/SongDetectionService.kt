@@ -72,8 +72,11 @@ class SongDetectionService : NotificationListenerService() {
             }
 
             if (title.isNotEmpty() && title != "null") {
-                Log.d(TAG, "Media Detected: $title by $artist ($packageName)")
-                SongState.currentSong.value = SongInfo(title, artist, packageName)
+                val current = SongState.currentSong.value
+                if (current?.title != title || current?.artist != artist) {
+                    Log.d(TAG, "Media Detected: $title by $artist ($packageName)")
+                    SongState.currentSong.value = SongInfo(title, artist, packageName)
+                }
             }
         }
     }
