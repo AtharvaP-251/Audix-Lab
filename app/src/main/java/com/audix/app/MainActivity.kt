@@ -41,7 +41,10 @@ import com.audix.app.audio.EqEngine
 import com.audix.app.audio.EQPresetLibrary
 import androidx.room.Room
 import com.audix.app.data.AppDatabase
+import com.audix.app.data.UserPreferencesRepository
 import com.audix.app.domain.GenreDetector
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import com.audix.app.state.SongState
 import com.audix.app.ui.theme.AudixTheme
 
@@ -49,11 +52,13 @@ class MainActivity : ComponentActivity() {
     private val eqEngine = EqEngine()
     private lateinit var db: AppDatabase
     private lateinit var genreDetector: GenreDetector
+    private lateinit var userPreferencesRepository: UserPreferencesRepository
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         db = Room.databaseBuilder(applicationContext, AppDatabase::class.java, "audix_db").build()
         genreDetector = GenreDetector(db.songCacheDao())
+        userPreferencesRepository = UserPreferencesRepository(applicationContext)
         eqEngine.initialize()
         
         enableEdgeToEdge()
@@ -63,6 +68,7 @@ class MainActivity : ComponentActivity() {
                     EqControls(
                         eqEngine = eqEngine,
                         genreDetector = genreDetector,
+                        userPreferencesRepository = userPreferencesRepository,
                         modifier = Modifier.padding(innerPadding)
                     )
                 }
@@ -77,11 +83,10 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun EqControls(eqEngine: EqEngine, genreDetector: GenreDetector, modifier: Modifier = Modifier) {
+fun EqControls(eqEngine: EqEngine, genreDetector: GenreDetector, userPreferencesRepository: UserPreferencesRepository, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    var isBassBoostEnabled by remember { mutableStateOf(false) }
     var isAutoEqEnabled by remember { mutableStateOf(true) }
     var isPermissionGranted by remember {
         mutableStateOf(NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName))
@@ -102,6 +107,22 @@ fun EqControls(eqEngine: EqEngine, genreDetector: GenreDetector, modifier: Modif
     // Observe active song state
     val currentSong by SongState.currentSong.collectAsState()
     val isServiceConnected by SongState.isServiceConnected.collectAsState()
+
+    val eqIntensity by userPreferencesRepository.eqIntensityFlow.collectAsState(initial = 1.0f)
+    var sliderPosition by remember(eqIntensity) { mutableStateOf(eqIntensity) }
+
+    val bassBoostIntensity by userPreferencesRepository.bassBoostFlow.collectAsState(initial = 0.0f)
+    var bassBoostPosition by remember(bassBoostIntensity) { mutableStateOf(bassBoostIntensity) }
+
+    val coroutineScope = rememberCoroutineScope()
+
+    LaunchedEffect(eqIntensity) {
+        eqEngine.currentIntensity = eqIntensity
+    }
+
+    LaunchedEffect(bassBoostIntensity) {
+        eqEngine.currentBassBoost = bassBoostIntensity
+    }
 
     LaunchedEffect(currentSong, isAutoEqEnabled) {
         val song = currentSong
@@ -209,6 +230,25 @@ fun EqControls(eqEngine: EqEngine, genreDetector: GenreDetector, modifier: Modif
 
         Text(text = "Audix EQ Engine", style = MaterialTheme.typography.titleLarge)
         Spacer(modifier = Modifier.height(16.dp))
+        
+        Text(text = "EQ Intensity: ${(sliderPosition * 100).toInt()}%")
+        androidx.compose.material3.Slider(
+            value = sliderPosition,
+            onValueChange = { newValue ->
+                sliderPosition = newValue
+                eqEngine.currentIntensity = newValue
+            },
+            onValueChangeFinished = {
+                coroutineScope.launch {
+                    userPreferencesRepository.saveEqIntensity(sliderPosition)
+                }
+            },
+            valueRange = 0f..1f,
+            steps = 9,
+            modifier = Modifier.padding(horizontal = 32.dp)
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Auto EQ (Apply genre presets)")
             Spacer(modifier = Modifier.width(8.dp))
@@ -221,11 +261,11 @@ fun EqControls(eqEngine: EqEngine, genreDetector: GenreDetector, modifier: Modif
                             val preset = EQPresetLibrary.getPresetForGenre(currentSong!!.genre!!)
                             if (preset != null) {
                                 eqEngine.applyPreset(preset)
-                                isBassBoostEnabled = false // Auto EQ overrides Bass Boost
                             }
                         }
                     } else {
-                        if (!isBassBoostEnabled) {
+                        eqEngine.applyPreset(com.audix.app.audio.EQPreset("Flat", emptyMap()))
+                        if (eqEngine.currentBassBoost == 0f) {
                             eqEngine.setEnabled(false)
                         }
                     }
@@ -233,18 +273,23 @@ fun EqControls(eqEngine: EqEngine, genreDetector: GenreDetector, modifier: Modif
             )
         }
         Spacer(modifier = Modifier.height(16.dp))
-        Button(
-            onClick = {
-                val newState = !isBassBoostEnabled
-                isBassBoostEnabled = newState
-                if (newState) {
-                    isAutoEqEnabled = false // Bass Boost overrides Auto EQ
+
+        Text(text = "Bass Boost: ${(bassBoostPosition * 100).toInt()}%")
+        androidx.compose.material3.Slider(
+            value = bassBoostPosition,
+            onValueChange = { newValue ->
+                bassBoostPosition = newValue
+                eqEngine.currentBassBoost = newValue
+            },
+            onValueChangeFinished = {
+                coroutineScope.launch {
+                    userPreferencesRepository.saveBassBoost(bassBoostPosition)
                 }
-                eqEngine.toggleBassBoost(newState)
-            }
-        ) {
-            Text(if (isBassBoostEnabled) "Disable Bass Boost" else "Enable Bass Boost")
-        }
+            },
+            valueRange = 0f..1f,
+            steps = 9,
+            modifier = Modifier.padding(horizontal = 32.dp)
+        )
     }
 }
 
@@ -252,9 +297,13 @@ fun EqControls(eqEngine: EqEngine, genreDetector: GenreDetector, modifier: Modif
 @Composable
 fun EqControlsPreview() {
     AudixTheme {
-        EqControls(EqEngine(), GenreDetector(object : com.audix.app.data.SongCacheDao {
-            override suspend fun getGenreForSong(title: String, artist: String): String? = null
-            override suspend fun insert(songCache: com.audix.app.data.SongCache) {}
-        }))
+        EqControls(
+            EqEngine(), 
+            GenreDetector(object : com.audix.app.data.SongCacheDao {
+                override suspend fun getGenreForSong(title: String, artist: String): String? = null
+                override suspend fun insert(songCache: com.audix.app.data.SongCache) {}
+            }),
+            UserPreferencesRepository(LocalContext.current)
+        )
     }
 }

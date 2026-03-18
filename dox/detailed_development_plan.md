@@ -87,9 +87,9 @@ Automatically apply the correct EQ settings based on the recognized genre.
 Provide intuitive control over the EQ's strength.
 
 ### Tasks
-- [ ] Implement a 0–100% UI slider using Jetpack Compose.
-- [ ] Develop the logic to scale EQ band values proportionally to the slider's value (e.g., +5 dB at 100% becomes +2.5 dB at 50%).
-- [ ] Persist the user's intensity preference using DataStore.
+- [x] Implement a 0–100% UI slider using Jetpack Compose.
+- [x] Develop the logic to scale EQ band values proportionally to the slider's value (e.g., +5 dB at 100% becomes +2.5 dB at 50%).
+- [x] Persist the user's intensity preference using DataStore.
 - [ ] **[Manual Intervention Required]** Manually drag the slider while music is playing to verify that the EQ intensity morphs smoothly and sounds natural without audio artifacts or popping.
 
 ---

@@ -8,6 +8,25 @@ class EqEngine {
     var isEnabled: Boolean = false
         private set
 
+    var currentIntensity: Float = 1.0f
+        set(value) {
+            field = value
+            reapplyCurrentEq()
+        }
+
+    var currentBassBoost: Float = 0.0f
+        set(value) {
+            field = value
+            reapplyCurrentEq()
+        }
+
+    private var lastAppliedPreset: EQPreset? = null
+
+    private fun reapplyCurrentEq() {
+        val presetToApply = lastAppliedPreset ?: EQPreset("Flat", emptyMap())
+        applyPreset(presetToApply)
+    }
+
     fun initialize() {
         try {
             // Priority 0, session 0 (global audio session)
@@ -21,6 +40,7 @@ class EqEngine {
     }
 
     fun applyPreset(preset: EQPreset) {
+        lastAppliedPreset = preset
         val eq = equalizer
         if (eq == null) {
             Log.e("EqEngine", "Cannot apply preset, Equalizer is null")
@@ -40,10 +60,19 @@ class EqEngine {
                     val closestFreq = preset.bands.keys.minByOrNull { Math.abs(it - bandFreq) } ?: continue
                     
                     val gainDb = preset.bands[closestFreq] ?: 0f
-                    // Exaggerate curve differences (x2) to be more obvious,
+                    // Apply intensity scaling, exaggerate curve differences (x2) to be more obvious,
                     // and apply a +3.0dB global offset to combat Android's automatic EQ volume reduction
-                    var targetLevel = ((gainDb * 2.0f + 3.0f) * 100).toInt()
+                    var targetLevel = ((gainDb * currentIntensity * 2.0f + 3.0f) * 100).toInt()
                     
+                    // Apply Bass Boost on lowest bands
+                    if (currentBassBoost > 0f) {
+                        if (i == 0) {
+                            targetLevel += ((maxLevel - targetLevel) * currentBassBoost).toInt()
+                        } else if (i == 1) {
+                            targetLevel += ((maxLevel - targetLevel) * (currentBassBoost * 0.5f)).toInt()
+                        }
+                    }
+
                     // Clamp to the device's acceptable range
                     if (targetLevel < minLevel) targetLevel = minLevel.toInt()
                     if (targetLevel > maxLevel) targetLevel = maxLevel.toInt()
@@ -54,37 +83,6 @@ class EqEngine {
             eq.enabled = true
             isEnabled = true
             Log.d("EqEngine", "Applied preset for genre: ${preset.genre}")
-        } catch (e: Exception) {
-            Log.e("EqEngine", "Error applying EQ preset", e)
-        }
-    }
-
-    fun toggleBassBoost(enable: Boolean) {
-        val eq = equalizer
-        if (eq == null) {
-            Log.e("EqEngine", "Cannot toggle Bass Boost, Equalizer is null")
-            return
-        }
-
-        try {
-            if (enable) {
-                val numBands = eq.numberOfBands
-                if (numBands > 0) {
-                    val maxLevel = eq.bandLevelRange[1]
-                    eq.setBandLevel(0, maxLevel)
-                    
-                    if (numBands > 1) {
-                        eq.setBandLevel(1, (maxLevel * 0.5).toInt().toShort())
-                    }
-                }
-                eq.enabled = true
-                isEnabled = true
-                Log.d("EqEngine", "Bass Boost enabled")
-            } else {
-                eq.enabled = false
-                isEnabled = false
-                Log.d("EqEngine", "Bass Boost disabled")
-            }
         } catch (e: Exception) {
             Log.e("EqEngine", "Error applying EQ preset", e)
         }
