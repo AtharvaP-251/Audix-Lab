@@ -27,7 +27,6 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.audix.app.data.UserPreferencesRepository
-import com.audix.app.service.AudioEngineServiceAidl
 import com.audix.app.service.AudioEngineServiceLocal
 import com.audix.app.state.SongState
 import com.audix.app.ui.theme.AudixTheme
@@ -108,27 +107,10 @@ fun EqControls(userPreferencesRepository: UserPreferencesRepository, modifier: M
     val customTreblePref by userPreferencesRepository.customTrebleFlow.collectAsState(initial = 0.0f)
     var customTreblePosition by remember(customTreblePref) { mutableStateOf(customTreblePref) }
 
-    val isAidlEnabled by userPreferencesRepository.aidlEnabledFlow.collectAsState(initial = false)
-    var initialized by remember { mutableStateOf(false) }
-
     // Manage Foreground Engine Lifecycle
-    LaunchedEffect(isAidlEnabled) {
-        if (!initialized) {
-            val targetServiceClass = if (isAidlEnabled) AudioEngineServiceAidl::class.java else AudioEngineServiceLocal::class.java
-            val startIntent = Intent(context, targetServiceClass)
-            ContextCompat.startForegroundService(context, startIntent)
-            initialized = true
-        } else {
-            val localIntent = Intent(context, AudioEngineServiceLocal::class.java)
-            context.stopService(localIntent)
-            
-            val aidlIntent = Intent(context, AudioEngineServiceAidl::class.java)
-            context.stopService(aidlIntent)
-            
-            val targetServiceClass = if (isAidlEnabled) AudioEngineServiceAidl::class.java else AudioEngineServiceLocal::class.java
-            val startIntent = Intent(context, targetServiceClass)
-            ContextCompat.startForegroundService(context, startIntent)
-        }
+    LaunchedEffect(Unit) {
+        val startIntent = Intent(context, AudioEngineServiceLocal::class.java)
+        ContextCompat.startForegroundService(context, startIntent)
     }
 
     var showSettingsDialog by remember { mutableStateOf(false) }
@@ -271,10 +253,11 @@ fun EqControls(userPreferencesRepository: UserPreferencesRepository, modifier: M
 
             val tuningColor = if (isCustomTuningEnabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
 
-            Text(text = "Bass: ${if (customBassPosition > 0) "+" else ""}${customBassPosition.toInt()}", color = tuningColor)
+            val bassVal = kotlin.math.round(customBassPosition).toInt()
+            Text(text = "Bass: ${if (bassVal > 0) "+" else ""}$bassVal", color = tuningColor)
             androidx.compose.material3.Slider(
                 value = customBassPosition,
-                onValueChange = { newValue -> customBassPosition = newValue },
+                onValueChange = { newValue -> customBassPosition = kotlin.math.round(newValue) },
                 onValueChangeFinished = { coroutineScope.launch { userPreferencesRepository.saveCustomBass(customBassPosition) } },
                 valueRange = -5f..5f,
                 steps = 9,
@@ -282,10 +265,11 @@ fun EqControls(userPreferencesRepository: UserPreferencesRepository, modifier: M
                 modifier = Modifier.padding(horizontal = 32.dp)
             )
 
-            Text(text = "Vocals: ${if (customVocalsPosition > 0) "+" else ""}${customVocalsPosition.toInt()}", color = tuningColor)
+            val vocalsVal = kotlin.math.round(customVocalsPosition).toInt()
+            Text(text = "Vocals: ${if (vocalsVal > 0) "+" else ""}$vocalsVal", color = tuningColor)
             androidx.compose.material3.Slider(
                 value = customVocalsPosition,
-                onValueChange = { newValue -> customVocalsPosition = newValue },
+                onValueChange = { newValue -> customVocalsPosition = kotlin.math.round(newValue) },
                 onValueChangeFinished = { coroutineScope.launch { userPreferencesRepository.saveCustomVocals(customVocalsPosition) } },
                 valueRange = -5f..5f,
                 steps = 9,
@@ -293,10 +277,11 @@ fun EqControls(userPreferencesRepository: UserPreferencesRepository, modifier: M
                 modifier = Modifier.padding(horizontal = 32.dp)
             )
 
-            Text(text = "Treble: ${if (customTreblePosition > 0) "+" else ""}${customTreblePosition.toInt()}", color = tuningColor)
+            val trebleVal = kotlin.math.round(customTreblePosition).toInt()
+            Text(text = "Treble: ${if (trebleVal > 0) "+" else ""}$trebleVal", color = tuningColor)
             androidx.compose.material3.Slider(
                 value = customTreblePosition,
-                onValueChange = { newValue -> customTreblePosition = newValue },
+                onValueChange = { newValue -> customTreblePosition = kotlin.math.round(newValue) },
                 onValueChangeFinished = { coroutineScope.launch { userPreferencesRepository.saveCustomTreble(customTreblePosition) } },
                 valueRange = -5f..5f,
                 steps = 9,
@@ -329,18 +314,6 @@ fun EqControls(userPreferencesRepository: UserPreferencesRepository, modifier: M
                         enabled = !isPermissionGranted,
                         onClick = { context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
                     )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("AIDL Audio Process", style = MaterialTheme.typography.bodyLarge)
-                            Text("Runs Engine in isolated process", style = MaterialTheme.typography.bodySmall)
-                        }
-                        Switch(
-                            checked = isAidlEnabled,
-                            onCheckedChange = { coroutineScope.launch { userPreferencesRepository.saveAidlEnabled(it) } }
-                        )
-                    }
                     Spacer(modifier = Modifier.height(16.dp))
 
                     SettingsRow(

@@ -12,7 +12,6 @@ import android.content.IntentFilter
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
-import com.audix.app.IAudioEngineService
 import com.audix.app.MainActivity
 import com.audix.app.audio.EQPresetLibrary
 import com.audix.app.audio.EqEngine
@@ -37,14 +36,6 @@ open class AudioEngineServiceLocal : Service() {
     private lateinit var userPreferencesRepository: UserPreferencesRepository
     private lateinit var genreDetector: GenreDetector
     private lateinit var db: AppDatabase
-
-    private val binder = object : IAudioEngineService.Stub() {
-        override fun ping(): Boolean = true
-
-        override fun notifySongChanged(title: String, artist: String, packageName: String) {
-            handleSongChange(title, artist)
-        }
-    }
 
     private val songReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -88,7 +79,7 @@ open class AudioEngineServiceLocal : Service() {
         return START_STICKY
     }
 
-    override fun onBind(intent: Intent?): IBinder = binder
+    override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
         super.onDestroy()
@@ -163,7 +154,7 @@ open class AudioEngineServiceLocal : Service() {
 
             if (debounce) {
                 // Debounce rapid notification updates from media players
-                delay(300)
+                delay(1500)
 
                 // Ensure the song hasn't changed during the debounce
                 val csMid = com.audix.app.state.SongState.currentSong.value

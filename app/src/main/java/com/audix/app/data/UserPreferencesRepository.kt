@@ -19,7 +19,6 @@ class UserPreferencesRepository(private val context: Context) {
         val CUSTOM_BASS = floatPreferencesKey("custom_bass")
         val CUSTOM_VOCALS = floatPreferencesKey("custom_vocals")
         val CUSTOM_TREBLE = floatPreferencesKey("custom_treble")
-        val AIDL_ENABLED = booleanPreferencesKey("aidl_enabled")
         val AUTO_EQ_ENABLED = booleanPreferencesKey("auto_eq_enabled")
     }
 
@@ -48,10 +47,7 @@ class UserPreferencesRepository(private val context: Context) {
             preferences[CUSTOM_TREBLE] ?: 0.0f
         }
 
-    val aidlEnabledFlow: Flow<Boolean> = context.dataStore.data
-        .map { preferences ->
-            preferences[AIDL_ENABLED] ?: false
-        }
+
 
     val autoEqEnabledFlow: Flow<Boolean> = context.dataStore.data
         .map { preferences ->
@@ -88,11 +84,7 @@ class UserPreferencesRepository(private val context: Context) {
         }
     }
 
-    suspend fun saveAidlEnabled(enabled: Boolean) {
-        context.dataStore.edit { preferences ->
-            preferences[AIDL_ENABLED] = enabled
-        }
-    }
+
 
     suspend fun saveAutoEqEnabled(enabled: Boolean) {
         context.dataStore.edit { preferences ->
