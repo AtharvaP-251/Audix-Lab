@@ -14,3 +14,14 @@
 .externalNativeBuild
 .cxx
 local.properties
+app/release/app-release.apk
+app/release/output-metadata.json
+app/release/baselineProfiles/0/app-release.dm
+app/release/baselineProfiles/1/app-release.dm
+c.log
+.gitignore
+crash2.log
+crash5.log
+crash.log
+crash4.log
+full_logs.txt

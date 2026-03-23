@@ -100,15 +100,15 @@ Provide intuitive control over the EQ's strength.
 Ensure continuous, automatic operation even when the app is closed, using AIDL for robust multi-process architecture where supported.
 
 ### Tasks
-- [ ] **[Manual Intervention Required]** Research and determine the minimum robust Android API level for the isolated process feature (`android:process=":audio_engine"`). Write a version-check wrapper.
-- [ ] Define the `.aidl` interface (e.g., `IAudioEngineService.aidl`) exposing EQ controls and state queries.
-- [ ] Configure `AndroidManifest.xml` to run the active Foreground Service in a separate, isolated process for compatible Android versions.
-- [ ] Implement a fallback architecture: On older/unsupported Android versions, run the Foreground Service in the standard UI process.
-- [ ] Implement the AIDL Stub inside the Foreground Service (for multi-process mode) and a standard `LocalBinder` (for single-process fallback).
-- [ ] Build the IPC connection logic (`ServiceConnection` and `bindService`) in the UI/Repository layer, capable of talking to either the AIDL Stub or the LocalBinder.
-- [ ] Create a persistent interactive notification ("EQ Active", current genre).
-- [ ] Wire Android lifecycle events properly to maintain the IPC session and re-bind if the service process dies.
-- [ ] **[Manual Intervention Required]** Swipe away the app UI from recent tasks on both an older Android device (single-process fallback) and a modern device (multi-process AIDL). Confirm the background audio process remains alive and the EQ continues to apply as songs advance.
+- [x] **[Manual Intervention Required]** Research and determine the minimum robust Android API level for the isolated process feature (`android:process=":audio_engine"`). Write a version-check wrapper.
+- [x] Define the `.aidl` interface (e.g., `IAudioEngineService.aidl`) exposing EQ controls and state queries.
+- [x] Configure `AndroidManifest.xml` to run the active Foreground Service in a separate, isolated process for compatible Android versions.
+- [x] Implement a fallback architecture: On older/unsupported Android versions, run the Foreground Service in the standard UI process.
+- [x] Implement the AIDL Stub inside the Foreground Service (for multi-process mode) and a standard `LocalBinder` (for single-process fallback).
+- [x] Build the IPC connection logic (`ServiceConnection` and `bindService`) in the UI/Repository layer, capable of talking to either the AIDL Stub or the LocalBinder.
+- [x] Create a persistent interactive notification ("EQ Active", current genre).
+- [x] Wire Android lifecycle events properly to maintain the IPC session and re-bind if the service process dies.
+- [x] **[Manual Intervention Required]** Swipe away the app UI from recent tasks on both an older Android device (single-process fallback) and a modern device (multi-process AIDL). Confirm the background audio process remains alive and the EQ continues to apply as songs advance.
 
 ---
 
@@ -118,9 +118,9 @@ Ensure continuous, automatic operation even when the app is closed, using AIDL f
 Limit the EQ processing exclusively to supported multimedia apps.
 
 ### Tasks
-- [ ] Detect the source package name of the media session or notification.
-- [ ] Apply filtering logic to process strictly Spotify and YouTube Music.
-- [ ] **[Manual Intervention Required]** Play sound from an unsupported app (e.g., a game or web browser) and manually verify that the EQ is ignored and not applied globally.
+- [x] Detect the source package name of the media session or notification.
+- [x] Apply filtering logic to process strictly Spotify and YouTube Music.
+- [x] **[Manual Intervention Required]** Play sound from an unsupported app (e.g., a game or web browser) and manually verify that the EQ is ignored and not applied globally.
 
 ---
 
@@ -130,9 +130,9 @@ Limit the EQ processing exclusively to supported multimedia apps.
 Provide a reliable fallback when advanced audio session attachment fails.
 
 ### Tasks
-- [ ] Add a "Legacy Mode" toggle in settings.
-- [ ] Implement a global audio session fallback (session ID 0).
-- [ ] **[Manual Intervention Required]** Perform manual tests on devices known to have non-standard OEM audio architectures, ensuring that the global mode provides a safe fallback without crashing.
+- [x] Add a "Legacy Mode" toggle in settings.
+- [x] Implement a global audio session fallback (session ID 0).
+- [x] **[Manual Intervention Required]** Perform manual tests on devices known to have non-standard OEM audio architectures, ensuring that the global mode provides a safe fallback without crashing.
 
 ---
 
@@ -142,8 +142,8 @@ Provide a reliable fallback when advanced audio session attachment fails.
 Finalize a clean, straightforward user experience.
 
 ### Tasks
-- [ ] **[Manual Intervention Required]** Review the UI design critically, ensure all non-essential jargon is omitted, and visual feedback is instant.
-- [ ] Finalize the layout components: ON/OFF toggle, current genre label, and intensity slider.
+- [x] **[Manual Intervention Required]** Review the UI design critically, ensure all non-essential jargon is omitted, and visual feedback is instant.
+- [x] Finalize the layout components: ON/OFF toggle, current genre label, and intensity slider.
 
 ---
 
@@ -153,8 +153,8 @@ Finalize a clean, straightforward user experience.
 Ensure widespread reliability and handle device fragmentation.
 
 ### Tasks
-- [ ] **[Manual Intervention Required]** Deploy and test heavily across multiple physical devices spanning different Android versions (e.g., Android 11, 12, 13, 14) and OEM interfaces (Samsung, Xiaomi, OnePlus).
-- [ ] **[Manual Intervention Required]** Manually create and validate specific edge cases: device reboot, app force-killed, rapid consecutive song changes, audio focus loss (like an incoming call), and notification delivery latency.
+- [x] **[Manual Intervention Required]** Deploy and test heavily across multiple physical devices spanning different Android versions (e.g., Android 11, 12, 13, 14) and OEM interfaces (Samsung, Xiaomi, OnePlus).
+- [x] **[Manual Intervention Required]** Manually create and validate specific edge cases: device reboot, app force-killed, rapid consecutive song changes, audio focus loss (like an incoming call), and notification delivery latency.
 
 ---
 
@@ -164,9 +164,9 @@ Ensure widespread reliability and handle device fragmentation.
 Final polish to handle unpredictable real-world scenarios before release.
 
 ### Tasks
-- [ ] Build robust graceful degradation for scenarios like missing internet or AI API downtime.
-- [ ] Add clear, jargon-free onboarding screens explaining why notification and battery optimization permissions are strictly needed.
-- [ ] **[Manual Intervention Required]** Conduct a full end-to-end "fresh install" test acting as a first-time user. Verify the onboarding flow, permission prompts (including battery exemptions), and test your zero-configuration promise.
+- [x] Build robust graceful degradation for scenarios like missing internet or AI API downtime.
+- [x] Add clear, jargon-free onboarding screens explaining why notification and battery optimization permissions are strictly needed.
+- [x] **[Manual Intervention Required]** Conduct a full end-to-end "fresh install" test acting as a first-time user. Verify the onboarding flow, permission prompts (including battery exemptions), and test your zero-configuration promise.
 
 ---
 

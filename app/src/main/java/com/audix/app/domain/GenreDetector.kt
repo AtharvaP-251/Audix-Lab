@@ -51,10 +51,14 @@ class GenreDetector(private val songCacheDao: SongCacheDao) {
         }
 
         val prompt = """
-            Classify song. One genre only: {Rock,Pop,Hip-Hop,Classical,Jazz,Electronic (EDM),Metal,R&B,Lo-fi}
+            Classify the song into ONE genre from:
+            Rock,Pop,Hip-Hop,Classical,Jazz,Electronic (EDM),Metal,R&B,Lo-fi.
+            Use the closest match based on title and artist.
             Return only the genre.
-            Title:$title
-            Artist:$artist
+
+Title:$title
+Artist:$artist
+
         """.trimIndent()
 
         val request = GeminiRequest(
@@ -74,6 +78,9 @@ class GenreDetector(private val songCacheDao: SongCacheDao) {
                 Log.e(TAG, "Empty choices in response")
                 "Error: Unknown Response"
             }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            Log.d(TAG, "Genre detection cancelled")
+            throw e
         } catch (e: retrofit2.HttpException) {
             Log.e(TAG, "HTTP error detecting genre: ${e.code()}", e)
             if (e.code() == 429) {

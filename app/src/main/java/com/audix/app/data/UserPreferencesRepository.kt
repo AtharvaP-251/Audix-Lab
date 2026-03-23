@@ -20,75 +20,56 @@ class UserPreferencesRepository(private val context: Context) {
         val CUSTOM_VOCALS = floatPreferencesKey("custom_vocals")
         val CUSTOM_TREBLE = floatPreferencesKey("custom_treble")
         val AUTO_EQ_ENABLED = booleanPreferencesKey("auto_eq_enabled")
+        val ONBOARDING_SHOWN = booleanPreferencesKey("onboarding_shown")
     }
 
     val eqIntensityFlow: Flow<Float> = context.dataStore.data
-        .map { preferences ->
-            preferences[EQ_INTENSITY] ?: 1.0f // Default to 100%
-        }
+        .map { preferences -> preferences[EQ_INTENSITY] ?: 1.0f }
 
     val customTuningEnabledFlow: Flow<Boolean> = context.dataStore.data
-        .map { preferences ->
-            preferences[CUSTOM_TUNING_ENABLED] ?: false
-        }
+        .map { preferences -> preferences[CUSTOM_TUNING_ENABLED] ?: false }
 
     val customBassFlow: Flow<Float> = context.dataStore.data
-        .map { preferences ->
-            preferences[CUSTOM_BASS] ?: 0.0f
-        }
+        .map { preferences -> preferences[CUSTOM_BASS] ?: 0.0f }
 
     val customVocalsFlow: Flow<Float> = context.dataStore.data
-        .map { preferences ->
-            preferences[CUSTOM_VOCALS] ?: 0.0f
-        }
+        .map { preferences -> preferences[CUSTOM_VOCALS] ?: 0.0f }
 
     val customTrebleFlow: Flow<Float> = context.dataStore.data
-        .map { preferences ->
-            preferences[CUSTOM_TREBLE] ?: 0.0f
-        }
-
-
+        .map { preferences -> preferences[CUSTOM_TREBLE] ?: 0.0f }
 
     val autoEqEnabledFlow: Flow<Boolean> = context.dataStore.data
-        .map { preferences ->
-            preferences[AUTO_EQ_ENABLED] ?: false
-        }
+        .map { preferences -> preferences[AUTO_EQ_ENABLED] ?: false }
+
+    /** True once the user has seen the first-launch onboarding screen. */
+    val onboardingShownFlow: Flow<Boolean> = context.dataStore.data
+        .map { preferences -> preferences[ONBOARDING_SHOWN] ?: false }
 
     suspend fun saveEqIntensity(intensity: Float) {
-        context.dataStore.edit { preferences ->
-            preferences[EQ_INTENSITY] = intensity
-        }
+        context.dataStore.edit { preferences -> preferences[EQ_INTENSITY] = intensity }
     }
 
     suspend fun saveCustomTuningEnabled(enabled: Boolean) {
-        context.dataStore.edit { preferences ->
-            preferences[CUSTOM_TUNING_ENABLED] = enabled
-        }
+        context.dataStore.edit { preferences -> preferences[CUSTOM_TUNING_ENABLED] = enabled }
     }
 
     suspend fun saveCustomBass(value: Float) {
-        context.dataStore.edit { preferences ->
-            preferences[CUSTOM_BASS] = value
-        }
+        context.dataStore.edit { preferences -> preferences[CUSTOM_BASS] = value }
     }
 
     suspend fun saveCustomVocals(value: Float) {
-        context.dataStore.edit { preferences ->
-            preferences[CUSTOM_VOCALS] = value
-        }
+        context.dataStore.edit { preferences -> preferences[CUSTOM_VOCALS] = value }
     }
 
     suspend fun saveCustomTreble(value: Float) {
-        context.dataStore.edit { preferences ->
-            preferences[CUSTOM_TREBLE] = value
-        }
+        context.dataStore.edit { preferences -> preferences[CUSTOM_TREBLE] = value }
     }
 
-
-
     suspend fun saveAutoEqEnabled(enabled: Boolean) {
-        context.dataStore.edit { preferences ->
-            preferences[AUTO_EQ_ENABLED] = enabled
-        }
+        context.dataStore.edit { preferences -> preferences[AUTO_EQ_ENABLED] = enabled }
+    }
+
+    suspend fun saveOnboardingShown(shown: Boolean) {
+        context.dataStore.edit { preferences -> preferences[ONBOARDING_SHOWN] = shown }
     }
 }

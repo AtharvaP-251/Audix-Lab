@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -27,6 +28,7 @@ fun HeroSection(
     genre: String?,
     isPlaying: Boolean,
     isAutoEqEnabled: Boolean,
+    isDetectingGenre: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -37,10 +39,10 @@ fun HeroSection(
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center,
-            modifier = Modifier.fillMaxWidth().height(160.dp)
+            modifier = Modifier.fillMaxWidth().height(180.dp)
         ) {
             AnimatedWaveform(isPlaying = isPlaying, modifier = Modifier.weight(1f).height(60.dp))
-            VinylRecord(modifier = Modifier.size(160.dp))
+            VinylRecord(modifier = Modifier.size(180.dp))
             AnimatedWaveform(isPlaying = isPlaying, reverse = true, modifier = Modifier.weight(1f).height(60.dp))
         }
 
@@ -103,15 +105,54 @@ fun HeroSection(
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
+            } else if (isDetectingGenre && title != "No Song Detected") {
+                // Actively detecting — show animated pill
+                val infiniteTransition = rememberInfiniteTransition(label = "detecting_pulse")
+                val alpha by infiniteTransition.animateFloat(
+                    initialValue = 0.4f,
+                    targetValue = 1.0f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(700, easing = FastOutSlowInEasing),
+                        repeatMode = RepeatMode.Reverse
+                    ),
+                    label = "pill_alpha"
+                )
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f))
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    Text(
+                        text = "Detecting Genre...",
+                        color = MaterialTheme.colorScheme.tertiary.copy(alpha = alpha),
+                        fontWeight = FontWeight.Medium,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            } else if (title != "No Song Detected") {
+                // AudixEQ on but not yet detecting (initial state)
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f))
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    Text(
+                        text = "Detecting Genre...",
+                        color = MaterialTheme.colorScheme.tertiary,
+                        fontWeight = FontWeight.Medium,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
             }
-            // else: AudixEQ on but no genre yet — space reserved, nothing shown
         }
     }
 }
 
 @Composable
 fun VinylRecord(modifier: Modifier = Modifier) {
-    // Circular clip + scale up 1.25x to zoom into disc, hiding most of the white PNG background
+    // Circular clip + scale up 1.35x to zoom into disc, hiding most of the white PNG background
     Box(
         modifier = modifier
             .clip(CircleShape),
@@ -122,15 +163,16 @@ fun VinylRecord(modifier: Modifier = Modifier) {
             contentDescription = "Vinyl Record",
             contentScale = ContentScale.Crop,
             modifier = Modifier
-                .fillMaxSize(1.25f)
-                .scale(1.25f)
+                .fillMaxSize(1.55f)
+                .scale(1.55f)
         )
     }
 }
 
 @Composable
 fun AnimatedWaveform(isPlaying: Boolean, reverse: Boolean = false, modifier: Modifier = Modifier) {
-    // If playing, use these durations to animate
+    // NOTE: title is intentionally NOT in LaunchedEffect key — removing it prevents
+    // the animation from pausing/restarting every time the song changes while already playing.
     val animationSpecs = if (reverse) listOf(350, 600, 400, 500, 300) else listOf(300, 500, 400, 600, 350)
 
     Row(
@@ -140,7 +182,8 @@ fun AnimatedWaveform(isPlaying: Boolean, reverse: Boolean = false, modifier: Mod
     ) {
         for (i in 0 until 5) {
             val scale = remember { Animatable(0.2f) }
-            
+
+            // Key is ONLY isPlaying — animation loop survives song changes seamlessly
             androidx.compose.runtime.LaunchedEffect(isPlaying) {
                 if (isPlaying) {
                     while (true) {
@@ -151,7 +194,7 @@ fun AnimatedWaveform(isPlaying: Boolean, reverse: Boolean = false, modifier: Mod
                     scale.animateTo(0.2f, tween(300))
                 }
             }
-            
+
             Box(
                 modifier = Modifier
                     .width(4.dp)

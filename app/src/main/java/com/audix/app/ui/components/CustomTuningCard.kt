@@ -4,6 +4,7 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -56,6 +57,34 @@ fun CustomTuningCard(
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold
                     )
+
+                    // Reset button: always visible when custom tuning is enabled.
+                    // Greyed out when all values are already 0, tinted when values are non-zero.
+                    if (isCustomTuningEnabled) {
+                        val hasNonZeroValues = customBass != 0f || customVocals != 0f || customTreble != 0f
+                        Spacer(modifier = Modifier.width(8.dp))
+                        androidx.compose.material3.IconButton(
+                            onClick = {
+                                onCustomBassChange(0f)
+                                onCustomBassChangeFinished()
+                                onCustomVocalsChange(0f)
+                                onCustomVocalsChangeFinished()
+                                onCustomTrebleChange(0f)
+                                onCustomTrebleChangeFinished()
+                            },
+                            modifier = Modifier.size(34.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Reset Tuning",
+                                tint = if (hasNonZeroValues)
+                                    MaterialTheme.colorScheme.primary
+                                else
+                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
                 }
                 AudixSwitch(
                     checked = isCustomTuningEnabled,

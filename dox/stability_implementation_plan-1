@@ -1,0 +1,32 @@
+# Audix: Post-Launch Stability & Refinement Plan
+
+With Phase 12 completed and legacy/AIDL features omitted, the primary goal moves to **rock-solid stability, battery efficiency, and edge-case handling**. This plan outlines refinements to ensure the app runs flawlessly as a daily driver.
+
+## 1. Audio Focus & Interruption Handling
+*Currently, if a phone call comes in or the user plays a video on Instagram, the EQ engine might stay engaged or get confused by the sudden audio ducking.*
+- **Action:** Implement `AudioManager.OnAudioFocusChangeListener` inside [AudioEngineServiceLocal](file:///c:/Users/athar/Desktop/Audix/app/src/main/java/com/audix/app/service/AudioEngineServiceLocal.kt#35-340).
+- **Behavior:** When audio focus is lost (e.g., phone call), temporarily disable the EQ. When focus is regained, automatically re-enable the EQ smoothly.
+
+## 2. Database & Cache Maintenance
+*The Room database stores every unique song detected. Over months of use, this cache could grow unnecessarily large, slowing down queries.*
+- **Action:** Add a cleanup routine to `SongCacheDao`.
+- **Behavior:** Every time the app launches, launch a background coroutine to sweep and delete cached songs that haven't been accessed in over 30 days.
+
+## 3. Strict Notification Debouncing
+*Some media apps update their notification multiple times per second (e.g., to update a progress bar), which can spam [SongDetectionService](file:///c:/Users/athar/Desktop/Audix/app/src/main/java/com/audix/app/service/SongDetectionService.kt#11-125).*
+- **Action:** Add a distinct state-change check in [processNotification](file:///c:/Users/athar/Desktop/Audix/app/src/main/java/com/audix/app/service/SongDetectionService.kt#58-124).
+- **Behavior:** Only broadcast an intent if the `title`, `artist`, or `isPlaying` state has *meaningfully* changed, ignoring metadata updates that only contain progress/timestamp changes.
+
+## 4. UI State Persistence (Cold Start Optimization)
+*When opening the app from a cold start, the UI briefly says "Waiting for music..." until the service reconnects and reads the active notification.*
+- **Action:** Use `DataStore` to persist the very last detected [SongInfo](file:///c:/Users/athar/Desktop/Audix/app/src/main/java/com/audix/app/state/SongState.kt#5-11) (Title, Artist, Genre).
+- **Behavior:** Immediately load this ghost state upon UI initialization so the app feels instantly responsive, then silently sync with the real background state a millisecond later.
+
+## 5. Error Recovery & Memory Management
+*Long-running foreground services can eventually be killed or suffer memory fragmentation.*
+- **Action:** Enforce strict `equalizer.release()` checks. Wrap the entire background coroutine scope in an exception handler that automatically restarts the service logic if a discrete crash occurs, rather than taking down the whole app.
+
+---
+
+### User Review Required
+Please review these proposed refinements. If this aligns with your vision for a stable experience, I will proceed to execution.

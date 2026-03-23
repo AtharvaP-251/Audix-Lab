@@ -12,6 +12,13 @@ class SongDetectionService : NotificationListenerService() {
 
     companion object {
         private const val TAG = "SongDetectionService"
+        val ALLOWED_PACKAGES = setOf(
+            "com.spotify.music",
+            "com.google.android.apps.youtube.music",
+            "com.google.android.youtube",
+            "app.revanced.android.apps.youtube.music",
+            "app.revanced.android.youtube"
+        )
     }
 
     override fun onListenerConnected() {
@@ -75,19 +82,41 @@ class SongDetectionService : NotificationListenerService() {
                 Log.e(TAG, "Error extracting media metadata", e)
             }
 
-            SongState.isPlaying.value = isPlaying
+            val isAllowed = ALLOWED_PACKAGES.contains(packageName)
+            val wasPlaying = SongState.isPlaying.value
+            
+            // Only update global playing state based on ALLOWED apps
+            if (isAllowed) {
+                SongState.isPlaying.value = isPlaying
+            } else if (isPlaying) {
+                // An unsupported app is playing, effectively pausing our allowed apps' focus
+                SongState.isPlaying.value = false
+            }
+
+            // Always broadcast playback state changes strictly for the active package so the engine can toggle EQ
+            val currentPackage = SongState.currentSong.value?.packageName
+            if (wasPlaying != SongState.isPlaying.value || (isPlaying && packageName != currentPackage)) {
+                val stateIntent = Intent("com.audix.app.PLAYBACK_STATE_CHANGED")
+                stateIntent.putExtra("EXTRA_IS_PLAYING", isPlaying)
+                stateIntent.putExtra("EXTRA_PACKAGE_NAME", packageName)
+                sendBroadcast(stateIntent)
+            }
 
             if (title.isNotEmpty() && title != "null") {
-                val current = SongState.currentSong.value
-                if (current?.title != title || current?.artist != artist) {
-                    Log.d(TAG, "Media Detected: $title by $artist ($packageName)")
-                    SongState.currentSong.value = SongInfo(title, artist, packageName)
-                    
-                    val intent = Intent("com.audix.app.SONG_CHANGED")
-                    intent.putExtra("EXTRA_TITLE", title)
-                    intent.putExtra("EXTRA_ARTIST", artist)
-                    intent.putExtra("EXTRA_PACKAGE_NAME", packageName)
-                    sendBroadcast(intent)
+                if (!isAllowed) {
+                    Log.d(TAG, "Ignoring unsupported media package: $packageName")
+                } else {
+                    val current = SongState.currentSong.value
+                    if (current?.title != title || current?.artist != artist) {
+                        Log.d(TAG, "Media Detected: $title by $artist ($packageName)")
+                        SongState.currentSong.value = SongInfo(title, artist, packageName)
+                        
+                        val intent = Intent("com.audix.app.SONG_CHANGED")
+                        intent.putExtra("EXTRA_TITLE", title)
+                        intent.putExtra("EXTRA_ARTIST", artist)
+                        intent.putExtra("EXTRA_PACKAGE_NAME", packageName)
+                        sendBroadcast(intent)
+                    }
                 }
             }
         }

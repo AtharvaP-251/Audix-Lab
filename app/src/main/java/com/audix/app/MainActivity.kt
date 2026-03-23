@@ -1,6 +1,8 @@
 package com.audix.app
 
 import android.content.Intent
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -9,11 +11,17 @@ import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.background
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Settings
@@ -22,6 +30,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
@@ -43,7 +52,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         userPreferencesRepository = UserPreferencesRepository(applicationContext)
-        
+
         enableEdgeToEdge()
         setContent {
             AudixTheme {
@@ -84,15 +93,14 @@ fun EqControls(userPreferencesRepository: UserPreferencesRepository, modifier: M
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-        }
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    // Observe active song state from detection service
+    // SongState
     val currentSong by SongState.currentSong.collectAsState()
     val isPlaying by SongState.isPlaying.collectAsState()
     val isServiceConnected by SongState.isServiceConnected.collectAsState()
+    val isDetectingGenre by SongState.isDetectingGenre.collectAsState()
 
     // Preferences
     val eqIntensity by userPreferencesRepository.eqIntensityFlow.collectAsState(initial = 1.0f)
@@ -113,7 +121,25 @@ fun EqControls(userPreferencesRepository: UserPreferencesRepository, modifier: M
     val customTreblePref by userPreferencesRepository.customTrebleFlow.collectAsState(initial = 0.0f)
     var customTreblePosition by remember(customTreblePref) { mutableStateOf(customTreblePref) }
 
-    // Manage Foreground Engine Lifecycle
+    // Phase 12: Onboarding
+    val onboardingShown by userPreferencesRepository.onboardingShownFlow.collectAsState(initial = true)
+    var showOnboarding by remember { mutableStateOf(false) }
+    LaunchedEffect(onboardingShown) {
+        if (!onboardingShown) showOnboarding = true
+    }
+
+    // Phase 12: Network connectivity banner
+    var isNetworkAvailable by remember { mutableStateOf(true) }
+    LaunchedEffect(Unit) {
+        // Poll network state — only on lifecycle resume matters but a simple check is enough
+        val cm = context.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val network = cm.activeNetwork
+        val caps = if (network != null) cm.getNetworkCapabilities(network) else null
+        isNetworkAvailable = caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true &&
+                caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+    }
+
+    // Start foreground EQ service
     LaunchedEffect(Unit) {
         val startIntent = Intent(context, AudioEngineServiceLocal::class.java)
         ContextCompat.startForegroundService(context, startIntent)
@@ -121,6 +147,65 @@ fun EqControls(userPreferencesRepository: UserPreferencesRepository, modifier: M
 
     var showSettingsDialog by remember { mutableStateOf(false) }
     var showInfoDialog by remember { mutableStateOf(false) }
+
+    // Phase 12: Onboarding Dialog
+    if (showOnboarding) {
+        AlertDialog(
+            onDismissRequest = {
+                showOnboarding = false
+                coroutineScope.launch { userPreferencesRepository.saveOnboardingShown(true) }
+            },
+            containerColor = MaterialTheme.colorScheme.surface,
+            tonalElevation = 0.dp,
+            title = {
+                Text(
+                    text = "Welcome to Audix",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    OnboardingStep(
+                        number = "1",
+                        title = "Notification Access",
+                        description = "Audix needs to read your media notifications to detect which song is playing in Spotify or YouTube Music. No personal data is stored."
+                    )
+                    OnboardingStep(
+                        number = "2",
+                        title = "Battery Optimization Exemption",
+                        description = "Exclude Audix from battery optimization so the EQ engine keeps running in the background while your music plays — even when the app is closed."
+                    )
+                    OnboardingStep(
+                        number = "3",
+                        title = "Zero Configuration",
+                        description = "Once permissions are granted, Audix automatically applies the right EQ for every song. Just play music and enjoy."
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showOnboarding = false
+                        coroutineScope.launch { userPreferencesRepository.saveOnboardingShown(true) }
+                        context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                    }
+                ) {
+                    Text("Grant Permissions")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showOnboarding = false
+                        coroutineScope.launch { userPreferencesRepository.saveOnboardingShown(true) }
+                    }
+                ) {
+                    Text("Skip for Now")
+                }
+            }
+        )
+    }
 
     Box(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Column(
@@ -131,10 +216,34 @@ fun EqControls(userPreferencesRepository: UserPreferencesRepository, modifier: M
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // Phase 12: Offline banner
+            AnimatedVisibility(
+                visible = !isNetworkAvailable,
+                enter = slideInVertically() + fadeIn(),
+                exit = slideOutVertically() + fadeOut()
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.errorContainer)
+                        .padding(horizontal = 16.dp, vertical = 10.dp)
+                ) {
+                    Text(
+                        text = "📡 Offline — genre detection paused, flat EQ active",
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+
             if (!isPermissionGranted || !isServiceConnected) {
-                // Permission Warning Header
                 androidx.compose.material3.Card(
-                    colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                    colors = androidx.compose.material3.CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer
+                    ),
                     modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
@@ -157,13 +266,14 @@ fun EqControls(userPreferencesRepository: UserPreferencesRepository, modifier: M
             val title = currentSong?.title ?: "No Song Detected"
             val artist = currentSong?.artist ?: "Play music in Spotify or YouTube Music"
             val genre = currentSong?.genre
-            
+
             com.audix.app.ui.components.HeroSection(
                 title = title,
                 artist = artist,
                 genre = genre,
                 isPlaying = isPlaying,
                 isAutoEqEnabled = isAutoEqEnabled,
+                isDetectingGenre = isDetectingGenre,
                 modifier = Modifier.padding(vertical = 24.dp)
             )
 
@@ -172,7 +282,7 @@ fun EqControls(userPreferencesRepository: UserPreferencesRepository, modifier: M
             // 2. Primary Card: Auto EQ
             com.audix.app.ui.components.EqEngineCard(
                 isAutoEqEnabled = isAutoEqEnabled,
-                onAutoEqChange = { 
+                onAutoEqChange = {
                     isAutoEqEnabled = it
                     coroutineScope.launch {
                         userPreferencesRepository.saveAutoEqEnabled(it)
@@ -181,7 +291,9 @@ fun EqControls(userPreferencesRepository: UserPreferencesRepository, modifier: M
                 },
                 eqIntensity = eqIntensityPosition,
                 onIntensityChange = { eqIntensityPosition = it },
-                onIntensityChangeFinished = { coroutineScope.launch { userPreferencesRepository.saveEqIntensity(eqIntensityPosition) } },
+                onIntensityChangeFinished = {
+                    coroutineScope.launch { userPreferencesRepository.saveEqIntensity(eqIntensityPosition) }
+                },
                 modifier = Modifier.fillMaxWidth()
             )
 
@@ -199,17 +311,23 @@ fun EqControls(userPreferencesRepository: UserPreferencesRepository, modifier: M
                 },
                 customBass = customBassPosition,
                 onCustomBassChange = { customBassPosition = it },
-                onCustomBassChangeFinished = { coroutineScope.launch { userPreferencesRepository.saveCustomBass(customBassPosition) } },
+                onCustomBassChangeFinished = {
+                    coroutineScope.launch { userPreferencesRepository.saveCustomBass(customBassPosition) }
+                },
                 customVocals = customVocalsPosition,
                 onCustomVocalsChange = { customVocalsPosition = it },
-                onCustomVocalsChangeFinished = { coroutineScope.launch { userPreferencesRepository.saveCustomVocals(customVocalsPosition) } },
+                onCustomVocalsChangeFinished = {
+                    coroutineScope.launch { userPreferencesRepository.saveCustomVocals(customVocalsPosition) }
+                },
                 customTreble = customTreblePosition,
                 onCustomTrebleChange = { customTreblePosition = it },
-                onCustomTrebleChangeFinished = { coroutineScope.launch { userPreferencesRepository.saveCustomTreble(customTreblePosition) } },
+                onCustomTrebleChangeFinished = {
+                    coroutineScope.launch { userPreferencesRepository.saveCustomTreble(customTreblePosition) }
+                },
                 modifier = Modifier.fillMaxWidth()
             )
-            
-            Spacer(modifier = Modifier.height(80.dp)) // padding for bottom icon
+
+            Spacer(modifier = Modifier.height(80.dp))
         }
 
         if (!isCustomTuningEnabled) {
@@ -218,7 +336,6 @@ fun EqControls(userPreferencesRepository: UserPreferencesRepository, modifier: M
                     .fillMaxSize()
                     .padding(16.dp)
             ) {
-                // Settings Icon (Bottom Left)
                 IconButton(
                     onClick = { showSettingsDialog = true },
                     modifier = Modifier.align(Alignment.BottomStart)
@@ -226,7 +343,6 @@ fun EqControls(userPreferencesRepository: UserPreferencesRepository, modifier: M
                     Icon(Icons.Filled.Settings, contentDescription = "Settings", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
 
-                // Info Icon (Bottom Right)
                 IconButton(
                     onClick = { showInfoDialog = true },
                     modifier = Modifier.align(Alignment.BottomEnd)
@@ -255,9 +371,7 @@ fun EqControls(userPreferencesRepository: UserPreferencesRepository, modifier: M
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showInfoDialog = false }) {
-                    Text("Close")
-                }
+                TextButton(onClick = { showInfoDialog = false }) { Text("Close") }
             }
         )
     }
@@ -276,20 +390,14 @@ fun EqControls(userPreferencesRepository: UserPreferencesRepository, modifier: M
                         isGranted = isPermissionGranted,
                         onClick = { context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
                     )
-                    HorizontalDivider(
-                        thickness = 0.5.dp,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
-                    )
+                    HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
                     SettingsClickRow(
                         title = "Background Autostart",
                         statusText = "Tap to manage in app settings",
                         isGranted = null,
                         onClick = { context.startActivity(Intent(Settings.ACTION_MANAGE_APPLICATIONS_SETTINGS)) }
                     )
-                    HorizontalDivider(
-                        thickness = 0.5.dp,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
-                    )
+                    HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
                     SettingsClickRow(
                         title = "Restrict Battery Optimization",
                         statusText = if (isIgnoringBatteryOptimizations) "Permission Granted" else "Permission Not Granted",
@@ -304,11 +412,43 @@ fun EqControls(userPreferencesRepository: UserPreferencesRepository, modifier: M
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showSettingsDialog = false }) {
-                    Text("Close")
-                }
+                TextButton(onClick = { showSettingsDialog = false }) { Text("Close") }
             }
         )
+    }
+}
+
+@Composable
+private fun OnboardingStep(number: String, title: String, description: String) {
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Box(
+            modifier = Modifier
+                .size(28.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = number,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+        Column {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 
@@ -316,7 +456,7 @@ fun EqControls(userPreferencesRepository: UserPreferencesRepository, modifier: M
 fun SettingsClickRow(
     title: String,
     statusText: String,
-    isGranted: Boolean?,    // null = no status badge needed
+    isGranted: Boolean?,
     onClick: () -> Unit
 ) {
     val statusColor = when (isGranted) {
@@ -334,11 +474,7 @@ fun SettingsClickRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
             Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = statusText,
-                style = MaterialTheme.typography.bodySmall,
-                color = statusColor
-            )
+            Text(text = statusText, style = MaterialTheme.typography.bodySmall, color = statusColor)
         }
         Icon(
             imageVector = Icons.Default.KeyboardArrowRight,
