@@ -249,7 +249,9 @@ open class AudioEngineServiceLocal : Service() {
                     // Update SongState so UI shows a useful state
                     val currentSong = SongState.currentSong.value
                     if (currentSong != null && currentSong.title == title) {
-                        SongState.currentSong.value = currentSong.copy(genre = null)
+                        SongState.currentSong.value = currentSong.copy(genre = "Offline")
+                    } else if (currentSong == null) {
+                        SongState.currentSong.value = com.audix.app.state.SongInfo(title, artist, genre = "Offline")
                     }
                     return@launch
                 }
@@ -279,6 +281,20 @@ open class AudioEngineServiceLocal : Service() {
                 }
             } else {
                 // Graceful degradation: apply flat EQ and show the error clearly
+                val fallbackGenre = when {
+                    detectedGenre == "Rate Limit Exceeded" -> "Rate Limited"
+                    detectedGenre?.startsWith("Error:") == true -> "Unknown"
+                    else -> "Unknown"
+                }
+                
+                // CRITICAL: Always update the genre so the UI doesn't get stuck in "Detecting Genre..." forever
+                val currentSong = SongState.currentSong.value
+                if (currentSong != null && currentSong.title == title) {
+                    SongState.currentSong.value = currentSong.copy(genre = fallbackGenre)
+                } else if (currentSong == null) {
+                    SongState.currentSong.value = com.audix.app.state.SongInfo(title, artist, genre = fallbackGenre)
+                }
+                
                 eqEngine.applyPreset(EQPreset("Flat", emptyMap()))
                 val errorMsg = when {
                     detectedGenre == "Rate Limit Exceeded" -> "Rate limit — Flat EQ active"

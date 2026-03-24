@@ -8,12 +8,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
+import kotlinx.coroutines.isActive
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -171,9 +174,8 @@ fun VinylRecord(modifier: Modifier = Modifier) {
 
 @Composable
 fun AnimatedWaveform(isPlaying: Boolean, reverse: Boolean = false, modifier: Modifier = Modifier) {
-    // NOTE: title is intentionally NOT in LaunchedEffect key — removing it prevents
-    // the animation from pausing/restarting every time the song changes while already playing.
     val animationSpecs = if (reverse) listOf(350, 600, 400, 500, 300) else listOf(300, 500, 400, 600, 350)
+    val barColor = MaterialTheme.colorScheme.primary
 
     Row(
         modifier = modifier,
@@ -181,26 +183,45 @@ fun AnimatedWaveform(isPlaying: Boolean, reverse: Boolean = false, modifier: Mod
         verticalAlignment = Alignment.CenterVertically
     ) {
         for (i in 0 until 5) {
-            val scale = remember { Animatable(0.2f) }
-
-            // Key is ONLY isPlaying — animation loop survives song changes seamlessly
-            androidx.compose.runtime.LaunchedEffect(isPlaying) {
+            val heightFraction = remember { Animatable(0.2f) }
+            val specDuration = animationSpecs[i]
+            
+            LaunchedEffect(isPlaying) {
                 if (isPlaying) {
-                    while (true) {
-                        scale.animateTo(1f, tween(durationMillis = animationSpecs[i], easing = FastOutSlowInEasing))
-                        scale.animateTo(0.2f, tween(durationMillis = animationSpecs[i], easing = FastOutSlowInEasing))
+                    while (isActive) {
+                        heightFraction.animateTo(
+                            targetValue = 1f,
+                            animationSpec = tween(durationMillis = specDuration, easing = FastOutSlowInEasing)
+                        )
+                        heightFraction.animateTo(
+                            targetValue = 0.2f,
+                            animationSpec = tween(durationMillis = specDuration, easing = FastOutSlowInEasing)
+                        )
                     }
                 } else {
-                    scale.animateTo(0.2f, tween(300))
+                    heightFraction.animateTo(
+                        targetValue = 0.2f,
+                        animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)
+                    )
                 }
             }
 
-            Box(
+            Spacer(
                 modifier = Modifier
                     .width(4.dp)
-                    .fillMaxHeight(scale.value)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(MaterialTheme.colorScheme.primary)
+                    .fillMaxHeight()
+                    .drawBehind {
+                        val fraction = heightFraction.value
+                        val actualHeight = size.height * fraction
+                        val topOffset = (size.height - actualHeight) / 2f
+                        
+                        drawRoundRect(
+                            color = barColor,
+                            topLeft = androidx.compose.ui.geometry.Offset(0f, topOffset),
+                            size = androidx.compose.ui.geometry.Size(size.width, actualHeight),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.dp.toPx())
+                        )
+                    }
             )
         }
     }

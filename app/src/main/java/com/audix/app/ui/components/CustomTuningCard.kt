@@ -1,7 +1,12 @@
 package com.audix.app.ui.components
 
-import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
@@ -10,6 +15,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -30,14 +39,13 @@ fun CustomTuningCard(
     onCustomTrebleChangeFinished: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // Track whether this is the first composition to skip the initial animation
+    var isFirstComposition by remember { mutableStateOf(true) }
+
     AudixCard(modifier = modifier) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .animateContentSize(animationSpec = spring(
-                    dampingRatio = androidx.compose.animation.core.Spring.DampingRatioNoBouncy,
-                    stiffness = androidx.compose.animation.core.Spring.StiffnessLow
-                ))
                 .padding(24.dp)
         ) {
             Row(
@@ -88,11 +96,44 @@ fun CustomTuningCard(
                 }
                 AudixSwitch(
                     checked = isCustomTuningEnabled,
-                    onCheckedChange = onCustomTuningChange
+                    onCheckedChange = { newValue ->
+                        isFirstComposition = false
+                        onCustomTuningChange(newValue)
+                    }
                 )
             }
 
-            if (isCustomTuningEnabled) {
+            AnimatedVisibility(
+                visible = isCustomTuningEnabled,
+                enter = if (isFirstComposition) {
+                    // No animation on initial render — just appear instantly
+                    fadeIn(animationSpec = spring(stiffness = Spring.StiffnessHigh)) +
+                    expandVertically(animationSpec = spring(stiffness = Spring.StiffnessHigh))
+                } else {
+                    fadeIn(
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                            stiffness = Spring.StiffnessLow
+                        )
+                    ) + expandVertically(
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                            stiffness = Spring.StiffnessLow
+                        )
+                    )
+                },
+                exit = fadeOut(
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioNoBouncy,
+                        stiffness = Spring.StiffnessMediumLow
+                    )
+                ) + shrinkVertically(
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioNoBouncy,
+                        stiffness = Spring.StiffnessMediumLow
+                    )
+                )
+            ) {
                 Column(modifier = Modifier.padding(top = 24.dp)) {
                     AudixInnerCard(modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.padding(16.dp)) {

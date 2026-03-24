@@ -130,13 +130,26 @@ fun EqControls(userPreferencesRepository: UserPreferencesRepository, modifier: M
 
     // Phase 12: Network connectivity banner
     var isNetworkAvailable by remember { mutableStateOf(true) }
-    LaunchedEffect(Unit) {
-        // Poll network state — only on lifecycle resume matters but a simple check is enough
+    DisposableEffect(context) {
         val cm = context.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        val network = cm.activeNetwork
-        val caps = if (network != null) cm.getNetworkCapabilities(network) else null
+        val networkRequest = android.net.NetworkRequest.Builder()
+            .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            .build()
+        val callback = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: android.net.Network) { isNetworkAvailable = true }
+            override fun onLost(network: android.net.Network) { isNetworkAvailable = false }
+            override fun onCapabilitiesChanged(network: android.net.Network, networkCapabilities: NetworkCapabilities) {
+                isNetworkAvailable = networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+            }
+        }
+        cm.registerNetworkCallback(networkRequest, callback)
+        // Set initial state
+        val activeNetwork = cm.activeNetwork
+        val caps = if (activeNetwork != null) cm.getNetworkCapabilities(activeNetwork) else null
         isNetworkAvailable = caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true &&
                 caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+                
+        onDispose { cm.unregisterNetworkCallback(callback) }
     }
 
     // Start foreground EQ service
@@ -231,7 +244,7 @@ fun EqControls(userPreferencesRepository: UserPreferencesRepository, modifier: M
                         .padding(horizontal = 16.dp, vertical = 10.dp)
                 ) {
                     Text(
-                        text = "📡 Offline — genre detection paused, flat EQ active",
+                        text = "Offline — genre detection paused",
                         color = MaterialTheme.colorScheme.onErrorContainer,
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium
