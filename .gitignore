@@ -1,28 +1,29 @@
+# Gradle
+.gradle/
+build/
+
+# Android Studio / IntelliJ
 *.iml
-.gradle
+.idea/
 /local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
-/.idea/*.xml
-.DS_Store
-/build
+.externalNativeBuild/
+.cxx/
 /captures
-.externalNativeBuild
-.cxx
-local.properties
-app/release/app-release.apk
-app/release/output-metadata.json
-app/release/baselineProfiles/0/app-release.dm
-app/release/baselineProfiles/1/app-release.dm
-c.log
-.gitignore
-crash2.log
-crash5.log
-crash.log
-crash4.log
+
+# Kotlin
+.kotlin/
+*.kotlin_module
+
+# OS specific
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs & Temporary Files
+*.log
 full_logs.txt
-.idea/inspectionProfiles/Project_Default.xml
+
+# Common Build Artifacts
+app/release/*.apk
+app/release/*.json
+app/release/baselineProfiles/**/*.dm

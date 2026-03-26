@@ -39,6 +39,7 @@ fun HeroSection(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier.fillMaxWidth()
     ) {
+        Spacer(modifier = Modifier.height(28.dp))
         // Vinyl & Waveforms Row
         Row(
             verticalAlignment = Alignment.CenterVertically,

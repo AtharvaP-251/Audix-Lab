@@ -246,7 +246,7 @@ fun EqControls(userPreferencesRepository: UserPreferencesRepository, modifier: M
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 24.dp)
-                .padding(top = 48.dp, bottom = 24.dp)
+                .padding(top = 32.dp, bottom = 24.dp)
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -285,10 +285,10 @@ fun EqControls(userPreferencesRepository: UserPreferencesRepository, modifier: M
                 isPlaying = isPlaying,
                 isAutoEqEnabled = isAutoEqEnabled,
                 isDetectingGenre = isDetectingGenre,
-                modifier = Modifier.padding(vertical = 24.dp)
+                modifier = Modifier.padding(top = 0.dp, bottom = 8.dp)
             )
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             // 2. Primary Card: Auto EQ
             com.audix.app.ui.components.EqEngineCard(
@@ -364,14 +364,14 @@ fun EqControls(userPreferencesRepository: UserPreferencesRepository, modifier: M
                 modifier = Modifier.fillMaxWidth()
             )
 
-            Spacer(modifier = Modifier.height(80.dp))
+            Spacer(modifier = Modifier.height(120.dp))
         }
 
-        if (!isCustomTuningEnabled) {
+        if (!isAutoEqEnabled && !isSpatialEnabled && !isCustomTuningEnabled) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(16.dp)
+                    .padding(24.dp)
             ) {
                 IconButton(
                     onClick = { showSettingsDialog = true },
