@@ -198,42 +198,36 @@ fun AnimatedWaveform(isPlaying: Boolean, reverse: Boolean = false, modifier: Mod
     val animationSpecs = if (reverse) listOf(350, 600, 400, 500, 300) else listOf(300, 500, 400, 600, 350)
     val barColor = MaterialTheme.colorScheme.primary
 
+    val infiniteTransition = rememberInfiniteTransition(label = "waveform")
+
     Row(
         modifier = modifier,
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically
     ) {
         for (i in 0 until 5) {
-            val heightFraction = remember { Animatable(0.2f) }
             val specDuration = animationSpecs[i]
             
-            LaunchedEffect(isPlaying) {
-                if (isPlaying) {
-                    while (isActive) {
-                        heightFraction.animateTo(
-                            targetValue = 1f,
-                            animationSpec = tween(durationMillis = specDuration, easing = FastOutSlowInEasing)
-                        )
-                        heightFraction.animateTo(
-                            targetValue = 0.2f,
-                            animationSpec = tween(durationMillis = specDuration, easing = FastOutSlowInEasing)
-                        )
-                    }
-                } else {
-                    heightFraction.animateTo(
-                        targetValue = 0.2f,
-                        animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)
-                    )
-                }
-            }
+            // Using infiniteTransition.animateFloat for smoother, system-managed animation
+            val heightFraction by infiniteTransition.animateFloat(
+                initialValue = 0.2f,
+                targetValue = if (isPlaying) 1f else 0.21f, // If not playing, keep it steady at 0.2f
+                animationSpec = infiniteRepeatable(
+                    animation = tween(durationMillis = specDuration, easing = FastOutSlowInEasing),
+                    repeatMode = RepeatMode.Reverse
+                ),
+                label = "bar_$i"
+            )
+
+            // Further optimized stationary bars when not playing
+            val finalHeightFraction = if (isPlaying) heightFraction else 0.2f
 
             Spacer(
                 modifier = Modifier
                     .width(4.dp)
                     .fillMaxHeight()
                     .drawBehind {
-                        val fraction = heightFraction.value
-                        val actualHeight = size.height * fraction
+                        val actualHeight = size.height * finalHeightFraction
                         val topOffset = (size.height - actualHeight) / 2f
                         
                         drawRoundRect(

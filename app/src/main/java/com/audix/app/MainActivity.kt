@@ -9,37 +9,46 @@ import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.outlined.Code
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.BlurredEdgeTreatment
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asComposeRenderEffect
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalView
+import android.view.HapticFeedbackConstants
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
@@ -47,11 +56,18 @@ import androidx.lifecycle.LifecycleEventObserver
 import com.audix.app.data.UserPreferencesRepository
 import com.audix.app.service.AudioEngineServiceLocal
 import com.audix.app.state.SongState
-import com.audix.app.ui.components.AudixEqLogo
 import com.audix.app.ui.theme.AudixTheme
 
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+
+sealed class SettingsSheetState {
+    object None : SettingsSheetState()
+    object Main : SettingsSheetState()
+    object ApiKey : SettingsSheetState()
+    object About : SettingsSheetState()
+    object Guide : SettingsSheetState()
+}
 
 class MainActivity : ComponentActivity() {
     private lateinit var userPreferencesRepository: UserPreferencesRepository
@@ -74,23 +90,6 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-    }
-}
-
-@Composable
-fun GuideStep(number: String, text: String) {
-    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(
-            text = "$number.",
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
-        )
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
     }
 }
 
@@ -125,21 +124,21 @@ fun EqControls(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    // SongState
     val currentSong by SongState.currentSong.collectAsState()
     val isPlaying by SongState.isPlaying.collectAsState()
     val isServiceConnected by SongState.isServiceConnected.collectAsState()
     val isDetectingGenre by SongState.isDetectingGenre.collectAsState()
 
-    // Preferences
     val eqIntensity by userPreferencesRepository.eqIntensityFlow.collectAsState(initial = 1.0f)
     var eqIntensityPosition by remember(eqIntensity) { mutableStateOf(eqIntensity) }
 
-    val autoEqEnabledPref by userPreferencesRepository.autoEqEnabledFlow.collectAsState(initial = false)
-    var isAutoEqEnabled by remember(autoEqEnabledPref) { mutableStateOf(autoEqEnabledPref) }
+    val autoEqFlowValue by userPreferencesRepository.autoEqEnabledFlow.collectAsState(initial = false)
+    var isAutoEqEnabled by remember { mutableStateOf(autoEqFlowValue) }
+    LaunchedEffect(autoEqFlowValue) { isAutoEqEnabled = autoEqFlowValue }
 
-    val customTuningEnabledPref by userPreferencesRepository.customTuningEnabledFlow.collectAsState(initial = false)
-    var isCustomTuningEnabled by remember(customTuningEnabledPref) { mutableStateOf(customTuningEnabledPref) }
+    val customTuningFlowValue by userPreferencesRepository.customTuningEnabledFlow.collectAsState(initial = false)
+    var isCustomTuningEnabled by remember { mutableStateOf(customTuningFlowValue) }
+    LaunchedEffect(customTuningFlowValue) { isCustomTuningEnabled = customTuningFlowValue }
 
     val customBassPref by userPreferencesRepository.customBassFlow.collectAsState(initial = 0.0f)
     var customBassPosition by remember(customBassPref) { mutableStateOf(customBassPref) }
@@ -150,9 +149,9 @@ fun EqControls(
     val customTreblePref by userPreferencesRepository.customTrebleFlow.collectAsState(initial = 0.0f)
     var customTreblePosition by remember(customTreblePref) { mutableStateOf(customTreblePref) }
 
-    // Spatial Audio
-    val spatialEnabledPref by userPreferencesRepository.spatialEnabledFlow.collectAsState(initial = false)
-    var isSpatialEnabled by remember(spatialEnabledPref) { mutableStateOf(spatialEnabledPref) }
+    val spatialEnabledFlowValue by userPreferencesRepository.spatialEnabledFlow.collectAsState(initial = false)
+    var isSpatialEnabled by remember { mutableStateOf(spatialEnabledFlowValue) }
+    LaunchedEffect(spatialEnabledFlowValue) { isSpatialEnabled = spatialEnabledFlowValue }
 
     val spatialLevelPref by userPreferencesRepository.spatialLevelFlow.collectAsState(initial = 0)
     var spatialLevelPosition by remember(spatialLevelPref) { mutableStateOf(spatialLevelPref) }
@@ -160,19 +159,51 @@ fun EqControls(
     val geminiApiKey by userPreferencesRepository.geminiApiKeyFlow.collectAsState(initial = null)
     var tempGeminiApiKey by remember(geminiApiKey) { mutableStateOf(geminiApiKey ?: "") }
 
-    // Expansion states for footer visibility logic
+    val masterEnabledFlowValue by userPreferencesRepository.masterEnabledFlow.collectAsState(initial = true)
+    var masterEnabled by remember { mutableStateOf(masterEnabledFlowValue) }
+    LaunchedEffect(masterEnabledFlowValue) { masterEnabled = masterEnabledFlowValue }
+
+    val isAnyEnhancementEnabled by remember(isAutoEqEnabled, isCustomTuningEnabled, isSpatialEnabled, masterEnabled) {
+        derivedStateOf { (isAutoEqEnabled || isCustomTuningEnabled || isSpatialEnabled) && masterEnabled }
+    }
+    
+    val spiralAlpha by animateFloatAsState(
+        targetValue = if (isAnyEnhancementEnabled) 1f else 0f,
+        animationSpec = spring(stiffness = Spring.StiffnessLow),
+        label = "spiralAlpha"
+    )
+
     var isEqExpanded by remember { mutableStateOf(isAutoEqEnabled) }
     var isSpatialExpanded by remember { mutableStateOf(isSpatialEnabled) }
     var isCustomExpanded by remember { mutableStateOf(isCustomTuningEnabled) }
 
-    // Phase 12: Onboarding
     val onboardingShown by userPreferencesRepository.onboardingShownFlow.collectAsState(initial = true)
     var showOnboarding by remember { mutableStateOf(false) }
     LaunchedEffect(onboardingShown) {
         if (!onboardingShown) showOnboarding = true
     }
 
-    // Phase 12: Network connectivity banner
+    var isEqVisible by remember { mutableStateOf(masterEnabled) }
+    var isCustomVisible by remember { mutableStateOf(masterEnabled) }
+    var isSpatialVisible by remember { mutableStateOf(masterEnabled) }
+
+    LaunchedEffect(masterEnabled) {
+        if (masterEnabled) {
+            isEqVisible = true
+            delay(60)
+            isCustomVisible = true
+            delay(60)
+            isSpatialVisible = true
+        } else {
+            // Staggered exit in reverse order (Spatial -> Custom -> EQ) for layout smoothness
+            isSpatialVisible = false
+            delay(40)
+            isCustomVisible = false
+            delay(40)
+            isEqVisible = false
+        }
+    }
+
     var isNetworkAvailable by remember { mutableStateOf(true) }
     DisposableEffect(context) {
         val cm = context.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as ConnectivityManager
@@ -187,7 +218,6 @@ fun EqControls(
             }
         }
         cm.registerNetworkCallback(networkRequest, callback)
-        // Set initial state
         val activeNetwork = cm.activeNetwork
         val caps = if (activeNetwork != null) cm.getNetworkCapabilities(activeNetwork) else null
         isNetworkAvailable = caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true &&
@@ -196,38 +226,36 @@ fun EqControls(
         onDispose { cm.unregisterNetworkCallback(callback) }
     }
 
-    // Phase 12: Offline banner dismissal & auto-hide
     var isOfflineBannerDismissed by remember { mutableStateOf(false) }
     LaunchedEffect(isNetworkAvailable) {
         if (isNetworkAvailable) {
             isOfflineBannerDismissed = false
         } else {
-            // Auto-hide after 5 seconds
             delay(5000)
             isOfflineBannerDismissed = true
         }
     }
 
-    // Start foreground EQ service
     LaunchedEffect(Unit) {
         val startIntent = Intent(context, AudioEngineServiceLocal::class.java)
         ContextCompat.startForegroundService(context, startIntent)
     }
 
-    var showSettingsDialog by remember { mutableStateOf(false) }
-    var showInfoDialog by remember { mutableStateOf(false) }
-    var showApiKeyDialog by remember { mutableStateOf(false) }
-    var showAboutDialog by remember { mutableStateOf(false) }
+    var settingsSheetState by remember { mutableStateOf<SettingsSheetState>(SettingsSheetState.None) }
+    var openedFromMainSettings by remember { mutableStateOf(false) }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    // Phase 12: Onboarding Dialog
+    val blurRadius by animateDpAsState(
+        targetValue = if (settingsSheetState != SettingsSheetState.None) 16.dp else 0.dp,
+        animationSpec = spring(stiffness = Spring.StiffnessMedium),
+        label = "blurAnimation"
+    )
+
     if (showOnboarding) {
         AlertDialog(
-            onDismissRequest = {
-                showOnboarding = false
-                coroutineScope.launch { userPreferencesRepository.saveOnboardingShown(true) }
-            },
+            onDismissRequest = { showOnboarding = false },
             containerColor = MaterialTheme.colorScheme.surface,
-            tonalElevation = 0.dp,
+            tonalElevation = 6.dp,
             title = {
                 Text(
                     text = "Welcome to Audix",
@@ -272,18 +300,124 @@ fun EqControls(
                         coroutineScope.launch { userPreferencesRepository.saveOnboardingShown(true) }
                     }
                 ) {
-                    Text("Skip for Now")
+                    Text("Got it")
                 }
             }
         )
     }
 
-    Box(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+
+    val infiniteTransition = rememberInfiniteTransition(label = "vinylAtmosphere")
+    
+    // Slow, realistic spin for the light reflection
+    val spinRotation by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(tween(20000, easing = LinearEasing), RepeatMode.Restart),
+        label = "spinRotation"
+    )
+
+    // Subtle breathing pulse for the entire element
+    val vinylPulse by infiniteTransition.animateFloat(
+        initialValue = 0.98f,
+        targetValue = 1.05f,
+        animationSpec = infiniteRepeatable(tween(8000, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "vinylPulse"
+    )
+
+    // Pulse Wave Animation (Expansion from center)
+    val groovePulse by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(4000, easing = LinearOutSlowInEasing), RepeatMode.Restart),
+        label = "groovePulse"
+    )
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
+        // Atmospheric Vinyl Background (Bottom Anchored)
+        val primaryRed = MaterialTheme.colorScheme.primary
+        val bgColor = MaterialTheme.colorScheme.background
+        val onSurfaceColor = MaterialTheme.colorScheme.onSurface
+        
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val centerX = size.width * 0.5f
+            val centerY = size.height - 80.dp.toPx() // Precisely aligned: (24dp outer + 24dp inner + 32dp button half)
+            val baseRadius = size.minDimension * 0.85f * vinylPulse
+            
+
+            // 2. Draw Micro-Grooves (Pulsing Pulse Waves)
+            val grooveCount = 20 // Optimized from 32 to 20 for better performance
+            for (i in 0 until grooveCount) {
+                // Each groove 'i' is offset by the pulse, creating a traveling wave
+                val waveProgress = (i.toFloat() / grooveCount.toFloat() + groovePulse) % 1.0f
+                val grooveRadius = baseRadius * (0.2f + waveProgress * 0.8f)
+                val isGreyStrip = i % 8 == 0
+                
+                // Fade out as it reaches the outer 20% of expansion
+                val alphaMultiplier = if (waveProgress > 0.8f) (1.0f - waveProgress) * 5f else 1.0f
+                // Fade in as it emerges from the 20% center
+                val fadeInMultiplier = if (waveProgress < 0.2f) waveProgress * 5f else 1.0f
+                
+                val finalAlpha = alphaMultiplier * fadeInMultiplier * spiralAlpha
+                
+                drawCircle(
+                    color = if (isGreyStrip) Color.Gray.copy(alpha = 0.08f * finalAlpha) else onSurfaceColor.copy(alpha = 0.03f * finalAlpha),
+                    center = Offset(centerX, centerY),
+                    radius = grooveRadius,
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = if (isGreyStrip) 2.dp.toPx() else 0.5.dp.toPx())
+                )
+            }
+
+            // 3. Draw The Spinning Reflection (Sweep Shimmer)
+            rotate(spinRotation, pivot = Offset(centerX, centerY)) {
+                drawCircle(
+                    brush = Brush.sweepGradient(
+                        0.0f to Color.Transparent,
+                        0.45f to Color.Transparent,
+                        0.5f to onSurfaceColor.copy(alpha = 0.06f * spiralAlpha),
+                        0.55f to Color.Transparent,
+                        1.0f to Color.Transparent
+                    ),
+                    center = Offset(centerX, centerY),
+                    radius = baseRadius
+                )
+                // Second opposing beam
+                drawCircle(
+                    brush = Brush.sweepGradient(
+                        0.0f to Color.Transparent,
+                        0.95f to Color.Transparent,
+                        0.0f to onSurfaceColor.copy(alpha = 0.04f * spiralAlpha),
+                        0.05f to Color.Transparent,
+                        1.0f to Color.Transparent
+                    ),
+                    center = Offset(centerX, centerY),
+                    radius = baseRadius
+                )
+            }
+
+        }
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .graphicsLayer {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && blurRadius > 0.dp) {
+                        try {
+                            renderEffect = android.graphics.RenderEffect.createBlurEffect(
+                                blurRadius.toPx(),
+                                blurRadius.toPx(),
+                                android.graphics.Shader.TileMode.DECAL
+                            ).asComposeRenderEffect()
+                        } catch (e: Exception) {
+                            // Fallback if blur fails
+                        }
+                    }
+                }
                 .padding(horizontal = 24.dp)
-                .padding(top = 32.dp, bottom = 24.dp)
+                .padding(top = 16.dp, bottom = 24.dp)
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -310,7 +444,6 @@ fun EqControls(
                 }
             }
 
-            // 1. Hero Section
             val title = currentSong?.title ?: "No Song Detected"
             val artist = currentSong?.artist ?: "Play music in Spotify or YouTube Music"
             val genre = currentSong?.genre
@@ -320,120 +453,239 @@ fun EqControls(
                 artist = artist,
                 genre = genre,
                 isPlaying = isPlaying,
-                isAutoEqEnabled = isAutoEqEnabled,
+                isAutoEqEnabled = isAutoEqEnabled && masterEnabled,
                 isDetectingGenre = isDetectingGenre,
                 modifier = Modifier.padding(top = 0.dp, bottom = 8.dp)
             )
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // 2. Primary Card: Auto EQ
-            com.audix.app.ui.components.EqEngineCard(
-                isAutoEqEnabled = isAutoEqEnabled,
-                onAutoEqChange = {
-                    isAutoEqEnabled = it
-                    coroutineScope.launch {
-                        userPreferencesRepository.saveAutoEqEnabled(it)
-                        if (it) userPreferencesRepository.saveCustomTuningEnabled(false)
-                    }
-                },
-                eqIntensity = eqIntensityPosition,
-                onIntensityChange = { eqIntensityPosition = it },
-                onIntensityChangeFinished = {
-                    coroutineScope.launch { userPreferencesRepository.saveEqIntensity(eqIntensityPosition) }
-                },
-                isExpanded = isEqExpanded,
-                onExpandedChange = { isEqExpanded = it },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // 2. Secondary Card: Custom Tuning
-            com.audix.app.ui.components.CustomTuningCard(
-                isCustomTuningEnabled = isCustomTuningEnabled,
-                onCustomTuningChange = {
-                    isCustomTuningEnabled = it
-                    coroutineScope.launch {
-                        userPreferencesRepository.saveCustomTuningEnabled(it)
-                        if (it) userPreferencesRepository.saveAutoEqEnabled(false)
-                    }
-                },
-                customBass = customBassPosition,
-                onCustomBassChange = { customBassPosition = it },
-                onCustomBassChangeFinished = {
-                    coroutineScope.launch { userPreferencesRepository.saveCustomBass(customBassPosition) }
-                },
-                customVocals = customVocalsPosition,
-                onCustomVocalsChange = { customVocalsPosition = it },
-                onCustomVocalsChangeFinished = {
-                    coroutineScope.launch { userPreferencesRepository.saveCustomVocals(customVocalsPosition) }
-                },
-                customTreble = customTreblePosition,
-                onCustomTrebleChange = { customTreblePosition = it },
-                onCustomTrebleChangeFinished = {
-                    coroutineScope.launch { userPreferencesRepository.saveCustomTreble(customTreblePosition) }
-                },
-                isExpanded = isCustomExpanded,
-                onExpandedChange = { isCustomExpanded = it },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // 3. Spatial Audio Card
-            com.audix.app.ui.components.SpatialAudioCard(
-                isSpatialEnabled = isSpatialEnabled,
-                isHeadphonesConnected = isHeadphonesConnected,
-                onSpatialEnabledChange = { enabled ->
-                    isSpatialEnabled = enabled
-                    coroutineScope.launch {
-                        userPreferencesRepository.saveSpatialEnabled(enabled)
-                        // If turning ON and level is 0, default to 3 (Balanced)
-                        if (enabled && spatialLevelPosition == 0) {
-                            spatialLevelPosition = 3
-                            userPreferencesRepository.saveSpatialLevel(3)
+            AnimatedVisibility(
+                visible = isEqVisible,
+                enter = fadeIn(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) +
+                        expandVertically(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)),
+                exit = fadeOut(animationSpec = tween(150)) +
+                       shrinkVertically(animationSpec = spring(stiffness = Spring.StiffnessMediumLow))
+            ) {
+                com.audix.app.ui.components.EqEngineCard(
+                    isAutoEqEnabled = isAutoEqEnabled && masterEnabled,
+                    onAutoEqChange = { enabled ->
+                        isAutoEqEnabled = enabled
+                        coroutineScope.launch {
+                            userPreferencesRepository.saveAutoEqEnabled(enabled)
+                            if (enabled) {
+                                userPreferencesRepository.saveCustomTuningEnabled(false)
+                                if (!masterEnabled) {
+                                    masterEnabled = true
+                                    userPreferencesRepository.saveMasterEnabled(true)
+                                }
+                            }
                         }
-                    }
-                },
-                spatialLevel = spatialLevelPosition,
-                onSpatialLevelChange = {
-                    spatialLevelPosition = it
-                    coroutineScope.launch {
-                        userPreferencesRepository.saveSpatialLevel(it)
-                    }
-                },
-                isExpanded = isSpatialExpanded,
-                onExpandedChange = { isSpatialExpanded = it },
-                modifier = Modifier.fillMaxWidth()
-            )
+                    },
+                    eqIntensity = eqIntensityPosition,
+                    onIntensityChange = { eqIntensityPosition = it },
+                    onIntensityChangeFinished = {
+                        coroutineScope.launch { userPreferencesRepository.saveEqIntensity(eqIntensityPosition) }
+                    },
+                    isExpanded = isEqExpanded,
+                    onExpandedChange = { isEqExpanded = it },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            if (isEqVisible && masterEnabled) {
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+
+            AnimatedVisibility(
+                visible = isCustomVisible,
+                enter = fadeIn(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) +
+                        expandVertically(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)),
+                exit = fadeOut(animationSpec = tween(150)) +
+                       shrinkVertically(animationSpec = spring(stiffness = Spring.StiffnessMediumLow))
+            ) {
+                com.audix.app.ui.components.CustomTuningCard(
+                    isCustomTuningEnabled = isCustomTuningEnabled && masterEnabled,
+                    onCustomTuningChange = { enabled ->
+                        isCustomTuningEnabled = enabled
+                        coroutineScope.launch {
+                            userPreferencesRepository.saveCustomTuningEnabled(enabled)
+                            if (enabled) {
+                                userPreferencesRepository.saveAutoEqEnabled(false)
+                                if (!masterEnabled) {
+                                    masterEnabled = true
+                                    userPreferencesRepository.saveMasterEnabled(true)
+                                }
+                            }
+                        }
+                    },
+                    customBass = customBassPosition,
+                    onCustomBassChange = { customBassPosition = it },
+                    onCustomBassChangeFinished = {
+                        coroutineScope.launch { userPreferencesRepository.saveCustomBass(customBassPosition) }
+                    },
+                    customVocals = customVocalsPosition,
+                    onCustomVocalsChange = { customVocalsPosition = it },
+                    onCustomVocalsChangeFinished = {
+                        coroutineScope.launch { userPreferencesRepository.saveCustomVocals(customVocalsPosition) }
+                    },
+                    customTreble = customTreblePosition,
+                    onCustomTrebleChange = { customTreblePosition = it },
+                    onCustomTrebleChangeFinished = {
+                        coroutineScope.launch { userPreferencesRepository.saveCustomTreble(customTreblePosition) }
+                    },
+                    isExpanded = isCustomExpanded,
+                    onExpandedChange = { isCustomExpanded = it },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            if (isCustomVisible && masterEnabled) {
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+
+            AnimatedVisibility(
+                visible = isSpatialVisible,
+                enter = fadeIn(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) +
+                        expandVertically(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)),
+                exit = fadeOut(animationSpec = tween(150)) +
+                       shrinkVertically(animationSpec = spring(stiffness = Spring.StiffnessMediumLow))
+            ) {
+                com.audix.app.ui.components.SpatialAudioCard(
+                    isSpatialEnabled = isSpatialEnabled && masterEnabled,
+                    isHeadphonesConnected = isHeadphonesConnected,
+                    onSpatialEnabledChange = { enabled ->
+                        isSpatialEnabled = enabled
+                        coroutineScope.launch {
+                            userPreferencesRepository.saveSpatialEnabled(enabled)
+                            if (enabled) {
+                                if (spatialLevelPosition == 0) {
+                                    spatialLevelPosition = 3
+                                    userPreferencesRepository.saveSpatialLevel(3)
+                                }
+                                if (!masterEnabled) {
+                                    masterEnabled = true
+                                    userPreferencesRepository.saveMasterEnabled(true)
+                                }
+                            }
+                        }
+                    },
+                    spatialLevel = spatialLevelPosition,
+                    onSpatialLevelChange = {
+                        spatialLevelPosition = it
+                        coroutineScope.launch {
+                            userPreferencesRepository.saveSpatialLevel(it)
+                        }
+                    },
+                    isExpanded = isSpatialExpanded,
+                    onExpandedChange = { isSpatialExpanded = it },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
 
             Spacer(modifier = Modifier.height(120.dp))
         }
 
         if (!isEqExpanded && !isSpatialExpanded && !isCustomExpanded) {
+            val powerPulse by infiniteTransition.animateFloat(
+                initialValue = 1f,
+                targetValue = 1.2f,
+                animationSpec = infiniteRepeatable(tween(2000, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+                label = "powerPulse"
+            )
+
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(24.dp)
             ) {
                 IconButton(
-                    onClick = { showSettingsDialog = true },
+                    onClick = { 
+                        openedFromMainSettings = true
+                        settingsSheetState = SettingsSheetState.Main 
+                    },
                     modifier = Modifier.align(Alignment.BottomStart)
                 ) {
-                    Icon(Icons.Filled.Settings, contentDescription = "Settings", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Icon(
+                        imageVector = Icons.Filled.Settings, 
+                        contentDescription = "Settings", 
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                    )
+                }
+
+                // Master Power Button
+                val localView = LocalView.current
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 24.dp)
+                        .size(64.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (isAnyEnhancementEnabled) {
+                        Canvas(modifier = Modifier.size(54.dp)) {
+                            drawCircle(
+                                color = primaryRed.copy(alpha = 0.15f * (2f - powerPulse)),
+                                radius = size.minDimension / 2f * powerPulse
+                            )
+                        }
+                    }
+                    
+                    IconButton(
+                        onClick = {
+                            localView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                            val newState = !masterEnabled
+                            masterEnabled = newState
+                            
+                            if (!newState) {
+                                isEqExpanded = false
+                                isSpatialExpanded = false
+                                isCustomExpanded = false
+                            }
+                            
+                            coroutineScope.launch {
+                                userPreferencesRepository.saveMasterEnabled(newState)
+                            }
+                        },
+                        modifier = Modifier
+                            .size(56.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (masterEnabled) primaryRed.copy(alpha = 0.1f)
+                                else Color.Transparent
+                            )
+                            .border(
+                                width = 1.dp,
+                                color = if (masterEnabled) primaryRed.copy(alpha = 0.3f) 
+                                        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.1f),
+                                shape = CircleShape
+                            )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PowerSettingsNew,
+                            contentDescription = "Master Power",
+                            tint = if (masterEnabled) primaryRed else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                            modifier = Modifier.size(32.dp)
+                        )
+                    }
                 }
 
                 IconButton(
-                    onClick = { showInfoDialog = true },
+                    onClick = { 
+                        openedFromMainSettings = false
+                        settingsSheetState = SettingsSheetState.Guide 
+                    },
                     modifier = Modifier.align(Alignment.BottomEnd)
                 ) {
-                    Icon(Icons.Outlined.Info, contentDescription = "Info", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Icon(
+                        imageVector = Icons.Outlined.Info, 
+                        contentDescription = "Info", 
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                    )
                 }
             }
         }
 
-        // Phase 12: Offline banner overlay
         AnimatedVisibility(
             visible = !isNetworkAvailable && !isOfflineBannerDismissed,
             enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
@@ -456,7 +708,7 @@ fun EqControls(
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.weight(1f).padding(start = 24.dp) // Left padding to balance the 'X' button
+                    modifier = Modifier.weight(1f).padding(start = 24.dp)
                 )
                 IconButton(
                     onClick = { isOfflineBannerDismissed = true },
@@ -471,298 +723,501 @@ fun EqControls(
                 }
             }
         }
-    }
-    if (showInfoDialog) {
-        AlertDialog(
-            onDismissRequest = { showInfoDialog = false },
-            containerColor = MaterialTheme.colorScheme.surface,
-            tonalElevation = 0.dp,
-            title = {
-                Text(
-                    "User Guide",
-                    style = MaterialTheme.typography.titleLarge.copy(fontSize = 19.sp),
-                    fontWeight = FontWeight.Bold
-                )
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    GuideStep("1", "Play music in Spotify or YouTube Music. Audix detects your tracks automatically.")
-                    GuideStep("2", "Enable AutoEQ for an intelligent, zero-config experience. The engine adapts its signature in real-time based on the detected genre.")
-                    GuideStep("3", "Use Spatial Audio for an immersive 3D soundscape. Note: This feature is only available when headphones are connected.")
-                    GuideStep("4", "Take control with Custom Tuning. Manually adjust Bass, Vocals, and Treble to your personal preference.")
-                    GuideStep("5", "Grant background autostart and battery exemptions to ensure the EQ engine remains active even when the app is closed.")
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showInfoDialog = false }) { Text("Got it") }
-            }
-        )
-    }
-    if (showSettingsDialog) {
-        AlertDialog(
-            onDismissRequest = { showSettingsDialog = false },
-            containerColor = MaterialTheme.colorScheme.surface,
-            tonalElevation = 0.dp,
-            title = {
-                Text(
-                    "Settings & Permissions",
-                    style = MaterialTheme.typography.titleLarge.copy(fontSize = 19.sp),
-                    fontWeight = FontWeight.Bold
-                )
-            },
-            text = {
-                Column {
-                    SettingsClickRow(
-                        title = "Notification Access",
-                        statusText = if (isPermissionGranted) "Permission Granted" else "Permission Not Granted",
-                        isGranted = isPermissionGranted,
-                        onClick = { context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
-                    )
-                    HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
-                    SettingsClickRow(
-                        title = "Background Autostart",
-                        statusText = "Tap to manage in app settings",
-                        isGranted = null,
-                        onClick = { context.startActivity(Intent(Settings.ACTION_MANAGE_APPLICATIONS_SETTINGS)) }
-                    )
-                    HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
-                    SettingsClickRow(
-                        title = "Restrict Battery Optimization",
-                        statusText = if (isIgnoringBatteryOptimizations) "Permission Granted" else "Permission Not Granted",
-                        isGranted = isIgnoringBatteryOptimizations,
-                        onClick = {
-                            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                                data = Uri.parse("package:${context.packageName}")
-                            }
-                            context.startActivity(intent)
-                        }
-                    )
-                    HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
-                    val maskedKey = if (geminiApiKey.isNullOrBlank()) "Not Set (Using Default)" 
-                                   else geminiApiKey!!.take(4) + "..." + geminiApiKey!!.takeLast(4)
-                    SettingsClickRow(
-                        title = "Gemini API Key",
-                        statusText = maskedKey,
-                        isGranted = !geminiApiKey.isNullOrBlank(),
-                        onClick = { showApiKeyDialog = true }
-                    )
-                    HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
-                    SettingsClickRow(
-                        title = "About Audix",
-                        statusText = "Version ${BuildConfig.VERSION_NAME}",
-                        isGranted = null,
-                        onClick = { showAboutDialog = true }
+        
+        if (settingsSheetState != SettingsSheetState.None) {
+            ModalBottomSheet(
+                onDismissRequest = { settingsSheetState = SettingsSheetState.None },
+                sheetState = sheetState,
+                containerColor = Color.Transparent,
+                scrimColor = Color.Black.copy(alpha = 0.32f),
+                tonalElevation = 0.dp,
+                dragHandle = { 
+                    Box(
+                        modifier = Modifier
+                            .padding(vertical = 12.dp)
+                            .size(width = 36.dp, height = 4.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
                     )
                 }
-            },
-            confirmButton = {
-                TextButton(onClick = { showSettingsDialog = false }) { Text("Close") }
-            }
-        )
-    }
-
-    if (showApiKeyDialog) {
-        AlertDialog(
-            onDismissRequest = { showApiKeyDialog = false },
-            containerColor = MaterialTheme.colorScheme.surface,
-            tonalElevation = 0.dp,
-            title = {
-                Text(
-                    "Gemini API Key",
-                    style = MaterialTheme.typography.titleLarge.copy(fontSize = 19.sp),
-                    fontWeight = FontWeight.Bold
-                )
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(
-                        "Enter your own Gemini API key for smarter genre detection. Leave blank to use the default app key.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    OutlinedTextField(
-                        value = tempGeminiApiKey,
-                        onValueChange = { tempGeminiApiKey = it },
-                        label = { Text("API Key") },
-                        placeholder = { Text("AIza...") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
+            ) {
+                SettingsSheetContent(
+                    state = settingsSheetState,
+                    isPermissionGranted = isPermissionGranted,
+                    isIgnoringBatteryOptimizations = isIgnoringBatteryOptimizations,
+                    geminiApiKey = geminiApiKey ?: "",
+                    tempGeminiApiKey = tempGeminiApiKey,
+                    onTempApiKeyChange = { tempGeminiApiKey = it },
+                    onSaveApiKey = {
                         coroutineScope.launch {
                             userPreferencesRepository.saveGeminiApiKey(tempGeminiApiKey.trim())
-                            showApiKeyDialog = false
                         }
-                    }
-                ) {
-                    Text("Save Key")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { 
-                    tempGeminiApiKey = geminiApiKey ?: ""
-                    showApiKeyDialog = false 
-                }) {
-                    Text("Cancel")
-                }
+                    },
+                    onBack = {
+                        if (settingsSheetState == SettingsSheetState.Main || !openedFromMainSettings) {
+                            settingsSheetState = SettingsSheetState.None
+                        } else {
+                            settingsSheetState = SettingsSheetState.Main
+                        }
+                    },
+                    onNavigate = { settingsSheetState = it },
+                    onShowOnboarding = { showOnboarding = true }
+                )
             }
-        )
-    }
-    if (showAboutDialog) {
-        AboutDialog(onDismiss = { showAboutDialog = false })
-    }
-}
-
-@Composable
-private fun OnboardingStep(number: String, title: String, description: String) {
-    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Box(
-            modifier = Modifier
-                .size(28.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = number,
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-        }
-        Column {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = description,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
     }
 }
 
 @Composable
-fun SettingsClickRow(
-    title: String,
-    statusText: String,
-    isGranted: Boolean?,
-    onClick: () -> Unit
+fun SettingsSheetContent(
+    state: SettingsSheetState,
+    isPermissionGranted: Boolean,
+    isIgnoringBatteryOptimizations: Boolean,
+    geminiApiKey: String,
+    tempGeminiApiKey: String,
+    onTempApiKeyChange: (String) -> Unit,
+    onSaveApiKey: () -> Unit,
+    onBack: () -> Unit,
+    onNavigate: (SettingsSheetState) -> Unit,
+    onShowOnboarding: () -> Unit
 ) {
-    val statusColor = when (isGranted) {
-        true  -> MaterialTheme.colorScheme.primary
-        false -> MaterialTheme.colorScheme.error
-        null  -> MaterialTheme.colorScheme.onSurfaceVariant
+    BackHandler(enabled = true) {
+        onBack()
     }
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
+
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 14.dp)
+            .fillMaxHeight(0.85f)
+            .clip(RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp))
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.72f))
+            .border(
+                width = 1.dp,
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f),
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+                    )
+                ),
+                shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp)
+            )
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(text = statusText, style = MaterialTheme.typography.bodySmall, color = statusColor)
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 24.dp)
+        ) {
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+            ) {
+                Text(
+                    text = when(state) {
+                        SettingsSheetState.Main -> "Settings"
+                        SettingsSheetState.ApiKey -> "Gemini API Key"
+                        SettingsSheetState.About -> "About Audix"
+                        SettingsSheetState.Guide -> "User Guide"
+                        else -> ""
+                    },
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.align(Alignment.Center)
+                )
+            }
+
+            HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+            
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Crossfade(
+                targetState = state,
+                animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                label = "SettingsTransition"
+            ) { targetState ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    when (targetState) {
+                        SettingsSheetState.Main -> MainSettingsPage(
+                            isPermissionGranted = isPermissionGranted,
+                            isIgnoringBatteryOptimizations = isIgnoringBatteryOptimizations,
+                            geminiApiKey = geminiApiKey,
+                            onNavigate = onNavigate,
+                            onShowOnboarding = onShowOnboarding
+                        )
+                        SettingsSheetState.ApiKey -> ApiKeySettingsPage(
+                            tempGeminiApiKey = tempGeminiApiKey,
+                            onTempApiKeyChange = onTempApiKeyChange,
+                            onSaveApiKey = {
+                                onSaveApiKey()
+                                onNavigate(SettingsSheetState.Main)
+                            }
+                        )
+                        SettingsSheetState.About -> AboutSettingsPage()
+                        SettingsSheetState.Guide -> GuideSettingsPage()
+                        else -> {}
+                    }
+                    Spacer(modifier = Modifier.height(32.dp))
+                }
+            }
         }
-        Icon(
-            imageVector = Icons.Default.KeyboardArrowRight,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-            modifier = Modifier.size(18.dp)
+    }
+}
+
+@Composable
+fun MainSettingsPage(
+    isPermissionGranted: Boolean,
+    isIgnoringBatteryOptimizations: Boolean,
+    geminiApiKey: String,
+    onNavigate: (SettingsSheetState) -> Unit,
+    onShowOnboarding: () -> Unit
+) {
+    val context = LocalContext.current
+    
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        SettingsSectionHeader("Core Permissions")
+        
+        AnimatedSettingsClickRow(
+            title = "Notification Access",
+            subtitle = if (isPermissionGranted) "Access Granted" else "Required",
+            icon = Icons.Default.Notifications,
+            isStatusActive = isPermissionGranted,
+            onClick = { context.startActivity(Intent(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
+        )
+        
+        AnimatedSettingsClickRow(
+            title = "Battery Optimization",
+            subtitle = if (isIgnoringBatteryOptimizations) "Optimized" else "Action Recommended",
+            icon = Icons.Default.BatteryChargingFull,
+            isStatusActive = isIgnoringBatteryOptimizations,
+            onClick = {
+                val intent = Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                    data = Uri.parse("package:${context.packageName}")
+                }
+                context.startActivity(intent)
+            }
+        )
+
+        AnimatedSettingsClickRow(
+            title = "Background Autostart",
+            subtitle = "Enable for stable experience",
+            icon = Icons.Default.Autorenew,
+            isStatusActive = null,
+            onClick = { openAutostartSettings(context) }
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+        SettingsSectionHeader("Personalization")
+
+        val maskedKey = if (geminiApiKey.isBlank()) "Using Default Key" 
+                       else geminiApiKey.take(4) + "..." + geminiApiKey.takeLast(4)
+        
+        AnimatedSettingsClickRow(
+            title = "Gemini API Key",
+            subtitle = maskedKey,
+            icon = Icons.Default.AutoAwesome,
+            isStatusActive = geminiApiKey.isNotBlank(),
+            onClick = { onNavigate(SettingsSheetState.ApiKey) }
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+        SettingsSectionHeader("Support & Info")
+
+        
+        AnimatedSettingsClickRow(
+            title = "About Audix",
+            subtitle = "Version ${BuildConfig.VERSION_NAME}",
+            icon = Icons.Default.Info,
+            onClick = { onNavigate(SettingsSheetState.About) }
         )
     }
 }
 
 @Composable
-fun AboutDialog(onDismiss: () -> Unit) {
-    val context = LocalContext.current
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.surface,
-        tonalElevation = 0.dp,
-        title = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Spacer(modifier = Modifier.height(20.dp))
-                Text(
-                    "audix",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 2.sp
-                )
-                Text(
-                    "VERSION ${BuildConfig.VERSION_NAME}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.sp
-                )
-            }
-        },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Text(
-                    "Intelligent real time audio enhancement for an immersive listening experience",
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    lineHeight = 20.sp
-                )
-                
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    AboutLinkRow(
-                        title = "Privacy Policy",
-                        icon = Icons.Outlined.Lock,
-                        onClick = { 
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/AtharvaP-251/Audix-Lab/blob/main/PRIVACY_POLICY.md"))
-                            context.startActivity(intent)
-                        }
-                    )
-                    AboutLinkRow(
-                        title = "GitHub Repository",
-                        icon = Icons.Outlined.Code,
-                        onClick = {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/AtharvaP-251/Audix-Lab"))
-                            context.startActivity(intent)
-                        }
-                    )
-                }
-
-                Box(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        "Developed by Audix Labs",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) { Text("Back") }
-        }
+fun SettingsSectionHeader(text: String) {
+    Text(
+        text = text.uppercase(),
+        style = MaterialTheme.typography.labelMedium,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+        letterSpacing = 1.2.sp,
+        modifier = Modifier.padding(vertical = 4.dp, horizontal = 4.dp)
     )
 }
 
 @Composable
-fun AboutLinkRow(title: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
+fun AnimatedSettingsClickRow(
+    title: String,
+    subtitle: String,
+    icon: ImageVector,
+    isStatusActive: Boolean? = null,
+    onClick: () -> Unit
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+            .border(
+                width = 0.8.dp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f),
+                shape = RoundedCornerShape(16.dp)
+            )
+            .clickable(
+                interactionSource = interactionSource,
+                indication = ripple(),
+                onClick = onClick
+            )
+            .padding(16.dp)
+    ) {
+        AnimatedSettingsIcon(
+            icon = icon,
+            isActive = isStatusActive ?: false,
+            modifier = Modifier.size(24.dp)
+        )
+        
+        Spacer(modifier = Modifier.width(16.dp))
+        
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = when(isStatusActive) {
+                    true -> MaterialTheme.colorScheme.primary
+                    false -> MaterialTheme.colorScheme.error
+                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                }
+            )
+        }
+        
+        Icon(
+            imageVector = Icons.Default.ChevronRight,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
+            modifier = Modifier.size(20.dp)
+        )
+    }
+}
+
+@Composable
+fun AnimatedSettingsIcon(
+    icon: ImageVector,
+    isActive: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier,
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = if (isActive) MaterialTheme.colorScheme.primary 
+                   else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+        )
+    }
+}
+
+private fun openAutostartSettings(context: android.content.Context) {
+    val intents = listOf(
+        Intent().setComponent(android.content.ComponentName("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity")),
+        Intent().setComponent(android.content.ComponentName("com.coloros.safecenter", "com.coloros.safecenter.permission.startup.StartupAppListActivity")),
+        Intent().setComponent(android.content.ComponentName("com.coloros.safecenter", "com.coloros.safecenter.startupapp.StartupAppListActivity")),
+        Intent().setComponent(android.content.ComponentName("com.oppo.safe", "com.oppo.safe.permission.startup.StartupAppListActivity")),
+        Intent().setComponent(android.content.ComponentName("com.iqoo.secure", "com.iqoo.secure.ui.phoneoptimize.AddWhiteListActivity")),
+        Intent().setComponent(android.content.ComponentName("com.iqoo.secure", "com.iqoo.secure.ui.phoneoptimize.BgStartUpManager")),
+        Intent().setComponent(android.content.ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.optimize.process.ProtectActivity")),
+        Intent().setComponent(android.content.ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.startupmgr.ui.StartupNormalAppListActivity"))
+    )
+
+    var started = false
+    for (intent in intents) {
+        try {
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(intent)
+            started = true
+            break
+        } catch (e: Exception) { /* continue */ }
+    }
+
+    if (!started) {
+        try {
+            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                data = Uri.fromParts("package", context.packageName, null)
+            }
+            context.startActivity(intent)
+        } catch (e: Exception) {
+            // Fallback to generic settings
+            val intent = Intent(Settings.ACTION_SETTINGS).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+        }
+    }
+}
+
+@Composable
+fun ApiKeySettingsPage(
+    tempGeminiApiKey: String,
+    onTempApiKeyChange: (String) -> Unit,
+    onSaveApiKey: () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Text(
+            "Enter your own Gemini API key for smarter genre detection. Leave blank to use the default app key.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        
+        OutlinedTextField(
+            value = tempGeminiApiKey,
+            onValueChange = onTempApiKeyChange,
+            label = { Text("API Key") },
+            placeholder = { Text("AIza...") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            leadingIcon = { Icon(Icons.Default.VpnKey, null) }
+        )
+        
+        Button(
+            onClick = onSaveApiKey,
+            modifier = Modifier.fillMaxWidth().height(56.dp),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Text("Save API Key", fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+fun AboutSettingsPage() {
+    val context = LocalContext.current
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(20.dp)
+    ) {
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        Box(
+            modifier = Modifier
+                .size(80.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.AudioFile,
+                contentDescription = null,
+                modifier = Modifier.size(40.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+        }
+
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                "audix",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 2.sp
+            )
+            Text(
+                "VERSION ${BuildConfig.VERSION_NAME}",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        Text(
+            "Intelligent real time audio enhancement for an immersive listening experience",
+            textAlign = TextAlign.Center,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 16.dp)
+        )
+        
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            AboutLinkRow(
+                title = "Privacy Policy",
+                icon = Icons.Outlined.Lock,
+                onClick = { 
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/AtharvaP-251/Audix-Lab/blob/main/PRIVACY_POLICY.md"))
+                    context.startActivity(intent)
+                }
+            )
+            AboutLinkRow(
+                title = "GitHub Repository",
+                icon = Icons.Outlined.Code,
+                onClick = {
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/AtharvaP-251/Audix-Lab"))
+                    context.startActivity(intent)
+                }
+            )
+        }
+        
+        Box(
+            modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                "Developed by Audix Labs",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+            )
+        }
+    }
+}
+
+@Composable
+fun GuideSettingsPage() {
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        GuideStepItem("1", "Play music in Spotify or YouTube Music. Audix detects your tracks automatically.")
+        GuideStepItem("2", "Enable AutoEQ for an intelligent, zero-config experience.")
+        GuideStepItem("3", "Use Spatial Audio for an immersive 3D soundscape (headphone required).")
+        GuideStepItem("4", "Take control with Custom Tuning for manual adjustment.")
+        GuideStepItem("5", "Ensure background permissions are granted for zero interruptions.")
+    }
+}
+
+@Composable
+fun GuideStepItem(number: String, text: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+            .padding(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text(
+            text = "$number.",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(top = 1.dp)
+        )
+        Text(text = text, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.align(Alignment.CenterVertically))
+    }
+}
+
+@Composable
+fun AboutLinkRow(title: String, icon: ImageVector, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -780,10 +1235,37 @@ fun AboutLinkRow(title: String, icon: androidx.compose.ui.graphics.vector.ImageV
         )
         Text(title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
         Icon(
-            imageVector = Icons.Default.KeyboardArrowRight,
+            imageVector = Icons.Default.ChevronRight,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
             modifier = Modifier.size(18.dp)
         )
+    }
+}
+
+@Composable
+private fun OnboardingStep(number: String, title: String, description: String) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = "$number.",
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(top = 1.dp)
+        )
+        Column {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }

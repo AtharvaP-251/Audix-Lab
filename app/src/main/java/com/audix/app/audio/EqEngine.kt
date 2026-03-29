@@ -1,5 +1,8 @@
 package com.audix.app.audio
 
+import android.content.Context
+import android.content.Intent
+import android.media.audiofx.AudioEffect
 import android.media.audiofx.Equalizer
 import android.util.Log
 
@@ -85,22 +88,23 @@ class EqEngine {
 
     private fun createEqualizer() {
         // Try global session (0) first; some OEMs require this
+        // Using high priority (1000) to override system effects like Motorola's Dolby/Moto Audio
         var created = false
         try {
-            equalizer = Equalizer(0, 0)
+            equalizer = Equalizer(1000, 0)
             equalizer?.enabled = false
-            Log.d("EqEngine", "Equalizer initialized on global session 0")
+            Log.d("EqEngine", "Equalizer initialized on global session 0 with priority 1000")
             created = true
         } catch (e: Exception) {
-            Log.w("EqEngine", "Failed to create Equalizer on session 0, trying alternate approach: ${e.message}")
+            Log.w("EqEngine", "Failed to create Equalizer with priority 1000, trying lower priority: ${e.message}")
         }
 
         if (!created) {
             try {
                 // Some OEMs ignore session 0 — try querying the system
-                equalizer = Equalizer(100, 0)
+                equalizer = Equalizer(0, 0)
                 equalizer?.enabled = false
-                Log.d("EqEngine", "Equalizer initialized with priority 100 on session 0")
+                Log.d("EqEngine", "Equalizer initialized with priority 0 on session 0")
             } catch (e: Exception) {
                 Log.e("EqEngine", "Failed to initialize Equalizer on any session. Device may not support it.", e)
                 equalizer = null
@@ -109,6 +113,22 @@ class EqEngine {
 
         // Phase 4.4 — initialise spatial engine alongside equalizer
         spatialEngine.initialize()
+    }
+
+    /**
+     * Broadcasts ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION to notify the OS
+     * and OEM audio drivers (like Motorola's Dolby) that a session is being managed.
+     */
+    fun notifySessionOpen(context: Context) {
+        try {
+            val intent = Intent(AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION)
+            intent.putExtra(AudioEffect.EXTRA_AUDIO_SESSION, 0)
+            intent.putExtra(AudioEffect.EXTRA_PACKAGE_NAME, context.packageName)
+            context.sendBroadcast(intent)
+            Log.d("EqEngine", "Broadcasted session open for session 0")
+        } catch (e: Exception) {
+            Log.w("EqEngine", "Failed to broadcast session open: ${e.message}")
+        }
     }
 
     fun applyPreset(preset: EQPreset) {

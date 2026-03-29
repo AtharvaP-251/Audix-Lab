@@ -9,6 +9,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
@@ -19,19 +20,24 @@ fun AudixCard(
     content: @Composable BoxScope.() -> Unit
 ) {
     val borderColor = if (isHighlighted) 
-        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f) 
+        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f) 
     else 
-        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
         
-    val borderWidth = if (isHighlighted) 1.dp else 0.5.dp
+    val borderWidth = if (isHighlighted) 1.5.dp else 1.dp
 
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(24.dp))
-            .background(MaterialTheme.colorScheme.surface)
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.45f))
             .border(
                 width = borderWidth,
-                color = borderColor,
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+                    )
+                ),
                 shape = RoundedCornerShape(24.dp)
             ),
         content = content
@@ -44,10 +50,10 @@ fun AudixInnerCard(modifier: Modifier = Modifier, content: @Composable BoxScope.
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
             .border(
                 width = 1.dp,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
                 shape = RoundedCornerShape(16.dp)
             ),
         content = content

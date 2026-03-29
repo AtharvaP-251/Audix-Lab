@@ -116,34 +116,31 @@ fun SpatialAudioCard(
             val transition = updateTransition(targetState = isExpanded, label = "card_expansion")
             val expansion by transition.animateFloat(
                 transitionSpec = {
-                    if (targetState) {
-                        spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)
-                    } else {
-                        spring(dampingRatio = 0.7f, stiffness = Spring.StiffnessMediumLow)
-                    }
+                    spring(
+                        dampingRatio = if (targetState) Spring.DampingRatioMediumBouncy else 0.8f,
+                        stiffness = if (targetState) Spring.StiffnessLow else Spring.StiffnessMediumLow
+                    )
                 },
                 label = "expansion_fraction"
             ) { if (it) 1f else 0f }
 
-            if (expansion != 0f || isExpanded) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .graphicsLayer {
-                            alpha = expansion
-                            scaleY = expansion
-                            transformOrigin = TransformOrigin(0.5f, 0f)
-                        }
-                        .layout { measurable: Measurable, constraints: Constraints ->
-                            val placeable = measurable.measure(constraints)
-                            val height = (placeable.height * expansion.coerceAtLeast(0f)).toInt()
-                            layout(placeable.width, height) {
-                                placeable.placeRelative(0, 0)
-                            }
-                        }
-
-                        .padding(top = 24.dp)
-                ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .animateContentSize(
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioLowBouncy,
+                            stiffness = Spring.StiffnessMediumLow
+                        )
+                    )
+            ) {
+                if (isExpanded) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .graphicsLayer { alpha = expansion }
+                            .padding(top = 24.dp)
+                    ) {
 
                     AudixInnerCard(modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.padding(16.dp)) {
@@ -193,16 +190,14 @@ fun SpatialAudioCard(
                             Text(
                                 text = displayProfile.description,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 2
                             )
                         }
                     }
                 }
             }
-
         }
     }
+}
 }
 
 

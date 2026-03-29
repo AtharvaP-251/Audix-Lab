@@ -25,6 +25,7 @@ class UserPreferencesRepository(private val context: Context) {
         val SPATIAL_ENABLED = booleanPreferencesKey("spatial_enabled")
         val SPATIAL_LEVEL   = intPreferencesKey("spatial_level")   // 0–5
         val GEMINI_API_KEY  = androidx.datastore.preferences.core.stringPreferencesKey("gemini_api_key")
+        val MASTER_ENABLED  = booleanPreferencesKey("master_enabled")
     }
 
     val eqIntensityFlow: Flow<Float> = context.dataStore.data
@@ -57,6 +58,9 @@ class UserPreferencesRepository(private val context: Context) {
 
     val geminiApiKeyFlow: Flow<String?> = context.dataStore.data
         .map { preferences -> preferences[GEMINI_API_KEY] }
+
+    val masterEnabledFlow: Flow<Boolean> = context.dataStore.data
+        .map { preferences -> preferences[MASTER_ENABLED] ?: true }
 
     suspend fun saveEqIntensity(intensity: Float) {
         context.dataStore.edit { preferences -> preferences[EQ_INTENSITY] = intensity }
@@ -102,5 +106,9 @@ class UserPreferencesRepository(private val context: Context) {
                 preferences[GEMINI_API_KEY] = key
             }
         }
+    }
+
+    suspend fun saveMasterEnabled(enabled: Boolean) {
+        context.dataStore.edit { preferences -> preferences[MASTER_ENABLED] = enabled }
     }
 }

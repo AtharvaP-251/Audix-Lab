@@ -58,6 +58,7 @@ open class AudioEngineServiceLocal : Service() {
         userPreferencesRepository = UserPreferencesRepository(applicationContext)
         eqEngine = EqEngine()
         eqEngine.initialize()
+        eqEngine.notifySessionOpen(this)
 
         headphoneDetector = com.audix.app.audio.HeadphoneDetector(applicationContext)
         headphoneDetector.start()
@@ -151,6 +152,11 @@ open class AudioEngineServiceLocal : Service() {
                 debouncedForceReapply()
             }
         }
+        scope.launch {
+            userPreferencesRepository.masterEnabledFlow.collect {
+                debouncedForceReapply()
+            }
+        }
     }
 
     private fun observeHardware() {
@@ -203,6 +209,7 @@ open class AudioEngineServiceLocal : Service() {
         // (e.g. Motorola devices where the global session becomes stale between songs)
         try {
             eqEngine.reinitialize()
+            eqEngine.notifySessionOpen(this)
         } catch (e: Exception) {
             Log.w("AudioEngine", "Reinitialize failed, continuing with existing equalizer: ${e.message}")
         }
@@ -236,19 +243,28 @@ open class AudioEngineServiceLocal : Service() {
                     SongState.isDetectingGenre.value = true
                 }
 
-                val preferences = withContext(Dispatchers.IO) {
+                val (preferences, masterEnabled) = withContext(Dispatchers.IO) {
                     val custom = userPreferencesRepository.customTuningEnabledFlow.first()
                     val auto = userPreferencesRepository.autoEqEnabledFlow.first()
                     val spatial = userPreferencesRepository.spatialEnabledFlow.first()
                     val level = userPreferencesRepository.spatialLevelFlow.first()
                     val apiKey = userPreferencesRepository.geminiApiKeyFlow.first()
-                    Pair(Triple(custom, auto, spatial), Pair(level, apiKey))
+                    val master = userPreferencesRepository.masterEnabledFlow.first()
+                    Pair(Triple(custom, auto, spatial), Pair(level, apiKey)) to master
                 }
                 val isCustomTuning = preferences.first.first
                 val isAutoEq = preferences.first.second
                 val isSpatial = preferences.first.third
                 val spatialLevel = preferences.second.first
                 val geminiApiKey = preferences.second.second
+
+                if (!masterEnabled) {
+                    if (jobId == lastJobId) SongState.isDetectingGenre.value = false
+                    eqEngine.applyPreset(EQPreset("Flat", emptyMap()))
+                    eqEngine.setEnabled(false)
+                    updateNotification("EQ Disabled", "$title by $artist")
+                    return@launch
+                }
 
                 // Sync spatial state to engine before any processing
                 eqEngine.isSpatialEnabled = isSpatial
@@ -370,9 +386,6 @@ open class AudioEngineServiceLocal : Service() {
         }
         updateNotification(notifyTitle, "$title by $artist")
     }
-
-
-
 
     private fun isNetworkAvailable(): Boolean {
         return try {
