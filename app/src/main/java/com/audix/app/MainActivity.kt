@@ -717,8 +717,8 @@ fun EqControls(
                     modifier = Modifier.align(Alignment.BottomEnd)
                 ) {
                     Icon(
-                        imageVector = Icons.Outlined.Info, 
-                        contentDescription = "Info", 
+                        imageVector = Icons.Outlined.HelpOutline, 
+                        contentDescription = "Help Guide", 
                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
                     )
                 }
