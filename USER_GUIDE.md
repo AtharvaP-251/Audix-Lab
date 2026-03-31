@@ -54,6 +54,25 @@ For those who want total control.
 
 ---
 
+## 🤖 Custom AI Engine (Advanced)
+
+### Gemini API Integration ⚡
+To get the most out of Audix, you can use your own Google Gemini API key.
+- **Benefits**: Faster detection, no shared limits, and enhanced privacy.
+- **How to Setup**: Go to **Settings > Gemini API Key** and paste your key.
+- **Privacy**: Your key is stored locally on your device and never shared.
+
+---
+
+## 🔋 Master Logic & Persistence
+
+### The Master Power Switch 🔌
+The master switch at the bottom is your global control for all enhancements.
+- **Global Override**: Toggling this off instantly disables all active EQ, Spatial, and Tuning effects.
+- **State Persistence**: Each individual feature (AutoEQ, Spatial Audio) remembers its last state. Re-enabling the Master Power will restore your previous configuration.
+
+---
+
 ## 📧 Support & Feedback
 If you encounter a bug or have a feature request, please reach out via our GitHub repository.
 

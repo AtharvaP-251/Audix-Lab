@@ -257,58 +257,92 @@ fun EqControls(
     )
 
     if (showOnboarding) {
-        AlertDialog(
-            onDismissRequest = { showOnboarding = false },
-            containerColor = MaterialTheme.colorScheme.surface,
-            tonalElevation = 6.dp,
-            title = {
-                Text(
-                    text = "Welcome to Audix",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold
-                )
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    OnboardingStep(
-                        number = "1",
-                        title = "Notification Access",
-                        description = "Audix needs to read your media notifications to detect which song is playing in Spotify or YouTube Music. No personal data is stored."
-                    )
-                    OnboardingStep(
-                        number = "2",
-                        title = "Battery Optimization Exemption",
-                        description = "Exclude Audix from battery optimization so the EQ engine keeps running in the background while your music plays — even when the app is closed."
-                    )
-                    OnboardingStep(
-                        number = "3",
-                        title = "Zero Configuration",
-                        description = "Once permissions are granted, Audix automatically applies the right EQ for every song. Just play music and enjoy."
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        showOnboarding = false
-                        coroutineScope.launch { userPreferencesRepository.saveOnboardingShown(true) }
-                        context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-                    }
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = { 
+                showOnboarding = false
+                coroutineScope.launch { userPreferencesRepository.saveOnboardingShown(true) }
+            }
+        ) {
+            com.audix.app.ui.components.AudixCard(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .wrapContentHeight()
+                    .padding(16.dp),
+                isHighlighted = true
+            ) {
+                Column(
+                    modifier = Modifier
+                        .padding(24.dp)
+                        .fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text("Grant Permissions")
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = {
-                        showOnboarding = false
-                        coroutineScope.launch { userPreferencesRepository.saveOnboardingShown(true) }
+                    Icon(
+                        imageVector = Icons.Default.AutoAwesome,
+                        contentDescription = null,
+                        modifier = Modifier.size(48.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+
+                    Text(
+                        text = "Welcome to Audix",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.ExtraBold,
+                        textAlign = TextAlign.Center
+                    )
+
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        OnboardingStep(
+                            icon = Icons.Default.NotificationsActive,
+                            title = "Notification Access",
+                            description = "Required to detect song transitions from Spotify or YouTube Music."
+                        )
+                        OnboardingStep(
+                            icon = Icons.Default.BatteryChargingFull,
+                            title = "Battery Exemption",
+                            description = "Ensures absolute zero-interruption audio processing in the background."
+                        )
+                        OnboardingStep(
+                            icon = Icons.Default.Speed,
+                            title = "Zero Config",
+                            description = "Audix automatically handles everything. Just press play and enjoy."
+                        )
                     }
-                ) {
-                    Text("Got it")
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Button(
+                        onClick = {
+                            showOnboarding = false
+                            coroutineScope.launch { userPreferencesRepository.saveOnboardingShown(true) }
+                            context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary
+                        )
+                    ) {
+                        Text("Get Started", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    }
+                    
+                    TextButton(
+                        onClick = {
+                            showOnboarding = false
+                            coroutineScope.launch { userPreferencesRepository.saveOnboardingShown(true) }
+                        }
+                    ) {
+                        Text(
+                            "Skip for now", 
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                            style = MaterialTheme.typography.labelLarge
+                        )
+                    }
                 }
             }
-        )
+        }
     }
 
 
@@ -1217,6 +1251,8 @@ fun GuideSettingsPage() {
         GuideStepItem("3", "Use Spatial Audio for an immersive 3D soundscape (headphone required).")
         GuideStepItem("4", "Take control with Custom Tuning for manual adjustment.")
         GuideStepItem("5", "Ensure background permissions are granted for zero interruptions.")
+        GuideStepItem("6", "Add your own Gemini API key for smarter, faster, and more private genre detection.")
+        GuideStepItem("7", "Use the Master Power button to instantly toggle all active enhancements.")
     }
 }
 
@@ -1269,27 +1305,42 @@ fun AboutLinkRow(title: String, icon: ImageVector, onClick: () -> Unit) {
 }
 
 @Composable
-private fun OnboardingStep(number: String, title: String, description: String) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-            text = "$number.",
-            style = MaterialTheme.typography.bodyLarge,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(top = 1.dp)
-        )
-        Column {
+private fun OnboardingStep(icon: ImageVector, title: String, description: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f))
+            .padding(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+        Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
             )
-            Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = description,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                lineHeight = 16.sp
             )
         }
     }
