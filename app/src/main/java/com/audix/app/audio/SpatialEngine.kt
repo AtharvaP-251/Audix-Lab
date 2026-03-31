@@ -1,118 +1,116 @@
 package com.audix.app.audio
 
-import android.media.audiofx.PresetReverb
+import android.media.audiofx.EnvironmentalReverb
+import android.media.audiofx.Virtualizer
+import android.media.audiofx.LoudnessEnhancer
 import android.os.Build
 import android.util.Log
 
 /**
- * Phase 3 — Spatial Audio DSP Core
+ * Phase 3 (Enhanced) — Spatial Audio DSP Core
  *
- * Implements the two-layer psychoacoustic engine described in the Spatial Audio Plan:
+ * Implements a high-fidelity spatial engine using:
  *
- *  Layer A — Psychoacoustic EQ Coloring  (Phase 3.1)
- *      Modifies individual EQ bands to simulate pinna notch shaping, torso warmth,
- *      and air/width presence.  All cues are grounded in ITD/ILD + HRTF literature.
+ *  Layer A — Psychoacoustic EQ Coloring
+ *      Modifies individual EQ bands to simulate pinna notch shaping and torso warmth.
  *
- *  Layer B — Depth / Envelopment         (Phase 3.2)
- *      Uses Android's [PresetReverb] (ROOM preset) for levels 4–5 only.
- *      D/R ratio is the primary distance cue per the research papers; fully controlled
- *      via the wet/dry blend parameter stored in each [SpatialProfile].
- *      Protected by a [reverbSupported] flag — any device that fails PresetReverb init
- *      silently falls back to Layer A only, with no crash.
+ *  Layer B — Accurate Stereo Widening (Virtualizer)
+ *      Uses Android's [Virtualizer] to project the soundstage beyond headphones.
  *
- * ⚙️  Platform constraint note:
- *      Android's AudioEffect API does not expose raw PCM, so a proper 4-delay FDN cannot
- *      be built in this version.  PresetReverb is the closest approximation available.
- *      When raw PCM access becomes possible (future), replace [setReverb] internals with
- *      the 4-delay FDN described in "Spatial Audio Software Replication Research" §3.
+ *  Layer C — Environmental Depth (Reverb)
+ *      Uses [EnvironmentalReverb] for granular control over decay and reflections.
+ *
+ *  Layer D — Volume Compensation (LoudnessEnhancer)
+ *      Counteracts perceived volume drop when spatial processing is active.
  */
 class SpatialEngine {
 
-    // ── Layer B state ────────────────────────────────────────────────────────
+    // ── Effect state ────────────────────────────────────────────────────────
 
-    private var reverb: PresetReverb? = null
+    private var reverb: EnvironmentalReverb? = null
+    private var virtualizer: Virtualizer? = null
+    private var enhancer: LoudnessEnhancer? = null
 
-    /**
-     * True if [PresetReverb] was successfully created on this device.
-     * Always check this before relying on reverb — some OEMs (e.g. Xiaomi/Realme)
-     * throw during construction.
-     */
     var reverbSupported: Boolean = false
+        private set
+    var virtualizerSupported: Boolean = false
+        private set
+    var enhancerSupported: Boolean = false
         private set
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
-    /**
-     * Initialises the engine.  Must be called once after the [EqEngine.equalizer]
-     * has been created (i.e. from inside [EqEngine.createEqualizer]).
-     *
-     * Attempts to create [PresetReverb] on audio session 0 (global).
-     * On failure the engine continues operating with Layer A only.
-     */
     fun initialize() {
         tryInitReverb()
+        tryInitVirtualizer()
+        tryInitEnhancer()
     }
 
     private fun tryInitReverb() {
         try {
-            // Priority 0, session 0 (global).  Using a non-zero session might fail
-            // on some devices if they restrict background effects.
-            val r = PresetReverb(0, 0)
-            r.preset = PresetReverb.PRESET_SMALLROOM
+            val r = EnvironmentalReverb(0, 0)
             r.enabled = false
             reverb = r
             reverbSupported = true
-            Log.d(TAG, "PresetReverb initialised — spatial depth supported")
+            Log.d(TAG, "EnvironmentalReverb initialised")
         } catch (e: Throwable) {
-            // Catching Throwable (not just Exception) to catch NoClassDefFound
-            // or UnsatisfiedLinkError on non-standard ROMs.
             reverbSupported = false
             reverb = null
-            val deviceInfo = "${Build.MANUFACTURER} ${Build.MODEL} (API ${Build.VERSION.SDK_INT})"
-            Log.w(TAG, "PresetReverb not supported on $deviceInfo: ${e.message}")
+            Log.w(TAG, "EnvironmentalReverb not supported: ${e.message}")
         }
     }
 
-    /**
-     * Releases native resources.  Must be called from [EqEngine.releaseInternal].
-     */
+    private fun tryInitVirtualizer() {
+        try {
+            val v = Virtualizer(0, 0)
+            v.enabled = false
+            virtualizer = v
+            virtualizerSupported = true
+            Log.d(TAG, "Virtualizer initialised")
+        } catch (e: Throwable) {
+            virtualizerSupported = false
+            virtualizer = null
+            Log.w(TAG, "Virtualizer not supported: ${e.message}")
+        }
+    }
+
+    private fun tryInitEnhancer() {
+        try {
+            val le = LoudnessEnhancer(0)
+            le.enabled = false
+            enhancer = le
+            enhancerSupported = true
+            Log.d(TAG, "LoudnessEnhancer initialised")
+        } catch (e: Throwable) {
+            enhancerSupported = false
+            enhancer = null
+            Log.w(TAG, "LoudnessEnhancer not supported: ${e.message}")
+        }
+    }
+
     fun release() {
         try {
             reverb?.enabled = false
             reverb?.release()
+            virtualizer?.enabled = false
+            virtualizer?.release()
+            enhancer?.enabled = false
+            enhancer?.release()
         } catch (e: Throwable) {
-            Log.w(TAG, "Error releasing PresetReverb: ${e.message}")
+            Log.w(TAG, "Error releasing effects: ${e.message}")
         } finally {
             reverb = null
+            virtualizer = null
+            enhancer = null
             reverbSupported = false
+            virtualizerSupported = false
+            enhancerSupported = false
         }
         Log.d(TAG, "SpatialEngine released")
     }
 
-    // ── Phase 3.1 — Layer A: Band-Level Psychoacoustic Delta ─────────────────
+    // ── Layer A — EQ Delta ───────────────────────────────────────────────────
 
-    /**
-     * Computes the spatial-adjusted EQ band level in millibels for a single band.
-     *
-     * Frequency routing (matches Android's standard 10-band EQ centre frequencies):
-     *  - 250 Hz        → [SpatialProfile.torsoWarmth]        (torso/shoulder grounding)
-     *  - 2000–4000 Hz  → [SpatialProfile.airPresence]        (width / soundstage)
-     *  - 8000 Hz       → [SpatialProfile.primaryPinnaNotch]  (elevation cue, 6–8 kHz)
-     *  - ≥ 16000 Hz    → [SpatialProfile.secondaryPinnaNotch] (front-back cue, 9–12 kHz approx)
-     *  - All other bands → returned unchanged
-     *
-     * The dB values in [SpatialProfile] are converted to millibels (* 100) before being
-     * added, then the result is clamped to [[minLevel], [maxLevel]].
-     *
-     * @param bandFreqHz          Centre frequency of the EQ band in Hz (already divided by 1000
-     *                            from the mHz value returned by [Equalizer.getCenterFreq]).
-     * @param currentLevelMillibels  Current accumulated band level in millibels (after base EQ
-     *                            and custom-tuning delta have been applied).
-     * @param profile             The active [SpatialProfile] for the selected level.
-     * @param minLevel            Device minimum band level in millibels.
-     * @param maxLevel            Device maximum band level in millibels.
-     * @return                    New band level in millibels, clamped to [minLevel]..[maxLevel].
-     */
     fun applyPsychoacousticDelta(
         bandFreqHz: Int,
         currentLevelMillibels: Int,
@@ -120,60 +118,88 @@ class SpatialEngine {
         minLevel: Short,
         maxLevel: Short
     ): Int {
-        // Determine which psychoacoustic parameter applies to this band
-        // We use ranges instead of exact matching because different OEMs report slightly
-        // different center frequencies (e.g. 7990Hz vs 8000Hz).
         val deltaDb: Float = when {
             bandFreqHz in 200..300       -> profile.torsoWarmth
             bandFreqHz in 2000..4500     -> profile.airPresence
             bandFreqHz in 6000..9000     -> profile.primaryPinnaNotch
             bandFreqHz >= 14000          -> profile.secondaryPinnaNotch
-            else                         -> return currentLevelMillibels  // band unaffected
+            else                         -> return currentLevelMillibels
         }
 
-        // Convert dB → millibels and apply delta
         val deltaMillibels = (deltaDb * 100).toInt()
         val adjusted = currentLevelMillibels + deltaMillibels
-
-        // Clamp to device-reported range and return
         return adjusted.coerceIn(minLevel.toInt(), maxLevel.toInt())
     }
 
-    // ── Phase 3.2 — Layer B: PresetReverb (FDN approximation) ────────────────
+    // ── Layer B — Virtualizer (Widening) ─────────────────────────────────────
 
-    /**
-     * Enables or disables the reverb effect and sets the room preset.
-     *
-     * @param enabled  Whether to enable reverb.
-     * @param preset   The PresetReverb preset ID (e.g. SMALLROOM, MEDIUMROOM).
-     *                 If null, reverb will be disabled.
-     */
-    fun setReverb(enabled: Boolean, preset: Short?) {
-        val r = reverb ?: return
-        if (!reverbSupported) return
+    fun setVirtualizer(enabled: Boolean, strength: Short) {
+        val v = virtualizer ?: return
+        if (!virtualizerSupported) return
 
         try {
-            if (enabled && preset != null) {
-                // Update preset even if already enabled to allow level changes
-                // (e.g. switching from SMALLROOM to MEDIUMROOM) to take effect.
-                r.preset  = preset
-                r.enabled = true
-                Log.d(TAG, "Reverb ON  (preset=$preset)")
-            } else {
-                if (r.enabled) {
-                    r.enabled = false
-                    Log.d(TAG, "Reverb OFF")
+            if (enabled && strength > 0) {
+                if (v.strengthSupported) {
+                    v.setStrength(strength)
                 }
+                v.enabled = true
+                Log.d(TAG, "Virtualizer ON (strength=$strength)")
+            } else {
+                v.enabled = false
+                Log.d(TAG, "Virtualizer OFF")
             }
         } catch (e: Throwable) {
-            // Device threw unexpectedly — degrade gracefully, never crash
-            reverbSupported = false
-            Log.w(TAG, "PresetReverb threw during setReverb, disabling reverb: ${e.message}")
-            try { r.enabled = false } catch (ignored: Exception) {}
+            Log.w(TAG, "Virtualizer error: ${e.message}")
         }
     }
 
-    // ── Private helpers ───────────────────────────────────────────────────────
+    // ── Layer C — Environmental Reverb (Depth) ───────────────────────────────
+
+    fun setReverb(enabled: Boolean, profile: SpatialProfile?) {
+        val r = reverb ?: return
+        if (!reverbSupported || profile == null) return
+
+        try {
+            if (enabled && profile.reverbRt60Ms > 0) {
+                r.decayTime = profile.reverbRt60Ms
+                val wetLevel = (Math.log10(profile.reverbWetDry.toDouble().coerceIn(0.01, 1.0)) * 2000).toInt()
+                r.reverbLevel = wetLevel.toShort()
+                r.reflectionsLevel = (wetLevel - 500).toShort()
+                r.enabled = true
+                Log.d(TAG, "Reverb ON (decay=${r.decayTime}ms, level=$wetLevel)")
+            } else {
+                r.enabled = false
+                Log.d(TAG, "Reverb OFF")
+            }
+        } catch (e: Throwable) {
+            Log.w(TAG, "Reverb error: ${e.message}")
+        }
+    }
+
+    // ── Layer D — Volume Compensation (Gain) ────────────────────────────────
+
+    /**
+     * Controls the loudness compensation gain.
+     * @param enabled Whether to enable boost.
+     * @param gainmB Target gain in millibels.
+     */
+    fun setLoudnessBoost(enabled: Boolean, gainmB: Int) {
+        val le = enhancer ?: return
+        if (!enhancerSupported) return
+
+        try {
+            if (enabled && gainmB > 0) {
+                le.setTargetGain(gainmB)
+                le.enabled = true
+                Log.d(TAG, "LoudnessEnhancer ON (gain=${gainmB}mB)")
+            } else {
+                le.enabled = false
+                Log.d(TAG, "LoudnessEnhancer OFF")
+            }
+        } catch (e: Throwable) {
+            Log.w(TAG, "LoudnessEnhancer error: ${e.message}")
+        }
+    }
 
     companion object {
         private const val TAG = "SpatialEngine"

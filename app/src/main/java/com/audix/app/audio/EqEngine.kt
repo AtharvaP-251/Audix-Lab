@@ -247,13 +247,28 @@ class EqEngine {
             }
         }
 
-        // Phase 4.3 — Apply reverb for levels 3–5; disable otherwise
+        // Phase 4.3 — Apply Accurate Reverb and Stereo Widening
         // GATED: Only apply if headphones are connected
-        if (isSpatialEnabled && isHeadphonesConnected && spatialLevel >= 3) {
+        if (isSpatialEnabled && isHeadphonesConnected) {
             val profile = SpatialProfileLibrary.getProfile(spatialLevel)
-            spatialEngine.setReverb(true, profile.reverbPreset)
+            
+            // Layer B: Stereo Widening (Virtualizer) — Levels 1-5
+            spatialEngine.setVirtualizer(true, profile.virtualizerStrength)
+            
+            // Layer C: Environmental Depth (Reverb) — Levels 2-5
+            // Level 1 is pure widening + EQ; Level 2+ adds depth
+            if (spatialLevel >= 2) {
+                spatialEngine.setReverb(true, profile)
+            } else {
+                spatialEngine.setReverb(false, null)
+            }
+
+            // Layer D: Volume Compensation (LoudnessEnhancer)
+            spatialEngine.setLoudnessBoost(true, profile.loudnessBoostmB)
         } else {
+            spatialEngine.setVirtualizer(false, 0)
             spatialEngine.setReverb(false, null)
+            spatialEngine.setLoudnessBoost(false, 0)
         }
 
         eq.enabled = true

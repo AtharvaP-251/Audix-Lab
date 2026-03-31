@@ -45,7 +45,15 @@ data class SpatialProfile(
 
     /** Simulated room decay time in milliseconds (RT60 approximation, 100–600 ms).
      *  Only meaningful when reverbPreset is not null. */
-    val reverbRt60Ms: Int
+    val reverbRt60Ms: Int,
+
+    /** NEW: Strength of the Android Virtualizer effect (0 - 1000).
+     *  Provides "Stereo Widening" by projecting sound beyond headphones. */
+    val virtualizerStrength: Short,
+
+    /** NEW: Gain compensation in millibels (mB) to counteract spatial volume drop. 
+     *  Applied via LoudnessEnhancer. 400 = +4dB. */
+    val loudnessBoostmB: Int
 )
 
 /**
@@ -80,67 +88,79 @@ object SpatialProfileLibrary {
             airPresence        =  0.0f,
             reverbPreset       =  null,
             reverbWetDry       =  0.0f,
-            reverbRt60Ms       =  0
+            reverbRt60Ms       =  0,
+            virtualizerStrength = 0,
+            loudnessBoostmB = 0
         ),
         SpatialProfile(
             level = 1,
             name = "Subtle",
             description = "Subtly expands the soundstage for a more natural feel",
-            primaryPinnaNotch  = -2.0f, // Doubled from -1.0
-            secondaryPinnaNotch = -1.0f, // Doubled from -0.5
-            torsoWarmth        =  1.0f, // Doubled from 0.5
-            airPresence        =  1.0f, // Doubled from 0.5
+            primaryPinnaNotch  = -1.5f,
+            secondaryPinnaNotch = -0.8f,
+            torsoWarmth        =  0.8f,
+            airPresence        =  0.8f,
             reverbPreset       =  null,
             reverbWetDry       =  0.00f,
-            reverbRt60Ms       =  0
+            reverbRt60Ms       =  0,
+            virtualizerStrength = 120,
+            loudnessBoostmB = 150 // +1.5dB boost
         ),
         SpatialProfile(
             level = 2,
             name = "Light",
             description = "Broadens the field to project sound beyond headphones",
-            primaryPinnaNotch  = -4.0f, // Doubled from -2.0
-            secondaryPinnaNotch = -2.0f, // Doubled from -1.0
-            torsoWarmth        =  1.6f, // Doubled from 0.8
-            airPresence        =  1.6f, // Doubled from 0.8
+            primaryPinnaNotch  = -3.0f,
+            secondaryPinnaNotch = -1.5f,
+            torsoWarmth        =  1.2f,
+            airPresence        =  1.2f,
             reverbPreset       =  null,
-            reverbWetDry       =  0.00f,
-            reverbRt60Ms       =  0
+            reverbWetDry       =  0.08f,
+            reverbRt60Ms       =  120,
+            virtualizerStrength = 280,
+            loudnessBoostmB = 250 // +2.5dB boost
         ),
         SpatialProfile(
             level = 3,
             name = "Balanced",
             description = "Perfectly balanced spatial depth for standard use",
-            primaryPinnaNotch  = -5.5f, // Increased (was -3.0)
-            secondaryPinnaNotch = -3.0f, // Increased (was -1.5)
-            torsoWarmth        =  2.0f, // Increased (was 1.0)
-            airPresence        =  2.5f, // Increased (was 1.2)
-            reverbPreset       =  PRESET_SMALLROOM, // Enabled reverb for level 3
+            primaryPinnaNotch  = -4.5f,
+            secondaryPinnaNotch = -2.5f,
+            torsoWarmth        =  1.6f,
+            airPresence        =  2.0f,
+            reverbPreset       =  PRESET_SMALLROOM,
             reverbWetDry       =  0.15f,
-            reverbRt60Ms       =  280
+            reverbRt60Ms       =  280,
+            virtualizerStrength = 500,
+            loudnessBoostmB = 400 // +4dB boost
         ),
         SpatialProfile(
             level = 4,
             name = "Strong",
             description = "Intense immersion with a deep acoustic environment",
-            primaryPinnaNotch  = -7.5f, // Increased (was -4.5)
-            secondaryPinnaNotch = -4.5f, // Increased (was -2.5)
-            torsoWarmth        =  2.5f, // Increased (was 1.2)
-            airPresence        =  4.0f, // Increased (was 1.8)
-            reverbPreset       =  PRESET_MEDIUMROOM, // Upgraded preset
-            reverbWetDry       =  0.22f,
-            reverbRt60Ms       =  380
+            primaryPinnaNotch  = -6.5f,
+            secondaryPinnaNotch = -3.5f,
+            torsoWarmth        =  2.0f,
+            airPresence        =  3.5f,
+            reverbPreset       =  PRESET_MEDIUMROOM,
+            reverbWetDry       =  0.28f,
+            reverbRt60Ms       =  450,
+            virtualizerStrength = 750,
+            loudnessBoostmB = 550 // +5.5dB boost
         ),
         SpatialProfile(
             level = 5,
             name = "Aggressive",
             description = "Maximum cinematic soundstage for total immersion",
-            primaryPinnaNotch  = -10.0f, // Increased (was -6.0)
-            secondaryPinnaNotch = -6.0f,  // Increased (was -3.5)
-            torsoWarmth        =  3.5f,  // Increased (was 1.5)
-            airPresence        =  6.5f,  // Increased (was 2.5)
-            reverbPreset       =  PRESET_LARGEROOM, // Upgraded preset
-            reverbWetDry       =  0.30f,
-            reverbRt60Ms       =  480
+            primaryPinnaNotch  = -8.0f,
+            secondaryPinnaNotch = -4.5f,
+            torsoWarmth        =  2.8f,
+            airPresence        =  5.5f,
+            reverbPreset       =  PRESET_LARGEROOM,
+            reverbWetDry       =  0.38f,
+            reverbRt60Ms       =  900,
+            virtualizerStrength = 900,
+            loudnessBoostmB = 700 // +7dB boost
         )
     )
 
