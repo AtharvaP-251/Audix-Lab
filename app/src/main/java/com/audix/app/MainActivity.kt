@@ -58,6 +58,7 @@ import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -276,10 +277,11 @@ fun EqControls(
 
     if (showOnboarding) {
         androidx.compose.ui.window.Dialog(
-            onDismissRequest = { 
-                showOnboarding = false
-                coroutineScope.launch { userPreferencesRepository.saveOnboardingShown(true) }
-            }
+            onDismissRequest = { },
+            properties = androidx.compose.ui.window.DialogProperties(
+                dismissOnBackPress = false, 
+                dismissOnClickOutside = false
+            )
         ) {
             com.audix.app.ui.components.AudixCard(
                 modifier = Modifier
@@ -323,7 +325,7 @@ fun EqControls(
                     }
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Button(
                             onClick = {
@@ -879,14 +881,20 @@ fun SettingsSheetContent(
     onNavigate: (SettingsSheetState) -> Unit,
     onShowOnboarding: () -> Unit
 ) {
-    BackHandler(enabled = true) {
+    val focusManager = LocalFocusManager.current
+    BackHandler(enabled = state != SettingsSheetState.None) {
+        focusManager.clearFocus()
         onBack()
     }
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .fillMaxHeight(0.85f)
+            .heightIn(min = 500.dp, max = 800.dp)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null
+            ) { focusManager.clearFocus() }
             .clip(RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp))
             .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.72f))
             .border(
@@ -1174,6 +1182,7 @@ fun ApiKeySettingsPage(
     onTempApiKeyChange: (String) -> Unit,
     onSaveApiKey: () -> Unit
 ) {
+    val focusManager = LocalFocusManager.current
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text(
             "Enter your own Gemini API key for smarter genre detection. Leave blank to use the default app key.",
@@ -1198,6 +1207,28 @@ fun ApiKeySettingsPage(
             shape = RoundedCornerShape(16.dp)
         ) {
             Text("Save API Key", fontWeight = FontWeight.Bold)
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.05f))
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                "Why use a personal key?",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                "Personal keys guarantee 100% uptime for Audix's intelligent genre detection, as the built-in app key shares usage limits across all users. Using your own key also enables faster processing and complete privacy for your listening habits.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                lineHeight = 18.sp
+            )
         }
     }
 }
